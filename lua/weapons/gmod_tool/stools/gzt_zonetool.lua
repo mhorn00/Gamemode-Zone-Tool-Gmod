@@ -1,4 +1,6 @@
 AddCSLuaFile()
+include("includes/util/table.lua")
+
 TOOL.Category = "Zone Tool"
 TOOL.Name = "#tool.gzt_zonetool.name"
 TOOL.Command = "gmod_toolmode gzt_zonetool"
@@ -23,13 +25,17 @@ TOOL.ModeList = {
 	TOOL.Modes.TESTMODE1,
 	TOOL.Modes.TESTMODE2,
 	TOOL.Modes.TESTMODE3
-
 }
 TOOL.CurrentBox = {
 	Min = nil,
 	Max = nil,
 	Ent = nil
 }
+// TODO: Multi key keybinds
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(keyObj)
+	if(keyObj.checked) then return end
+	
+end
 
 function TOOL.BuildCPanel(CPanel)
 	local button = vgui.Create("DButton")
@@ -38,6 +44,10 @@ end
 
 function TOOL:GetToolMode()
     return self.ModeList[self:GetOperation()+1]
+end
+
+function TOOL:GetToolModeOperation(operation)
+	return self.ModeList[operation+1]
 end
 
 function TOOL:UpdateToolMode()
@@ -50,6 +60,10 @@ function TOOL:UpdateToolMode()
     end
 end
 
+function TOOL:Reload() // otherwise when u hit r it sets operation to 0 
+	return --this is bullshit and i hate it
+end
+
 function TOOL:Think()
 	self:ProcessInput()
 	if self:GetToolMode() == self.Modes.Loading then
@@ -57,7 +71,15 @@ function TOOL:Think()
 	end
 end
 
+function TOOL:KeyPress(keyObj,current_mode)
+	local index = table.indexOf(self.ModeList, current_mode)
+	if(self["KF"..current_mode..keyObj.keyNum]) then
+		self["KF"..current_mode..keyObj.keyNum](keyObj)
+	end
+end
+
 function TOOL:PlayerButtonDown(key, ply)
+	--In this function self refers to the player holding the tool, not the tool itseld
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 		if (!toolInst.KeyTable) then
@@ -65,65 +87,32 @@ function TOOL:PlayerButtonDown(key, ply)
 		end
 		if !toolInst.KeyTable[key] then
 			--{Is key currently pressed?, should fire only once?, has this value been checked?}
-			toolInst.KeyTable[key] = {isPressed=true, once=true, checked=false}
+			toolInst.KeyTable[key] = {isPressed=true, once=true, checked=false, keyNum=key}
 		else
-			toolInst.KeyTable[key] = {isPressed=true, once=toolInst.KeyTable[key][2], false}
+			toolInst.KeyTable[key] = {isPressed=true, once=toolInst.KeyTable[key][2], checked=false, keyNum=key}
 		end
+		//toolInst:KeyPress(toolInst.KeyTable[key],toolInst.ModeList[toolInst:GetOperation()+1])
 	end
 end
 hook.Add("PlayerButtonDown", "ZoneToolKeyDown", TOOL.PlayerButtonDown)
 
 function TOOL:PlayerButtonUp(key, ply)
+	--In this function self refers to the player holding the tool
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		toolInst.KeyTable[key] = {isPressed=false, once=true,  checked=toolInst.KeyTable[key][3]}
+		toolInst.KeyTable[key] = {isPressed=false, once=true,  checked=toolInst.KeyTable[key][3], keyNum=key}
 	end
 end
 hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
 
---key=key to check (use BUTTON_CODE https://wiki.garrysmod.com/page/Enums/BUTTON_CODE), isHold=will fire once when false, will fire continuously while button is held
-function TOOL:IsKeyPressed(key, isHold)
-	if self.KeyTable[key]==nil then
-		return false 
-	end
-	if self.KeyTable[key].isPressed then
-		if isHold then
-			self.KeyTable[key].once=false;
-			return true
-		else
-			if !self.KeyTable[key].checked then
-				self.KeyTable[key].checked = true
-				return true
-			else
-				return false
-			end
-		end
-	else
-		return false
-	end
-end
-
---This is dumb and need to find a way to not have to definine each kebind sepratly for every mode
---Current problem is that IsKeyPressed is what determins if a key is fired multiple times or once
 function TOOL:ProcessInput()
-	--if pause menu is open dont process input
-	if (gui && gui.IsGameUIVisible()) then return end
-	if self:IsKeyPressed(KEY_E,false) then
-		self:UpdateToolMode()
+	for i,v in pairs(self.KeyTable) do
+		if(v.isPressed) then
+			self:KeyPress(v,self.ModeList[self:GetOperation()+1])
+			self.KeyTable[i].checked = true
+		end
 	end
-	-- if self:GetToolMode() == self.Modes.Create then
-	-- 	if self:IsKeyPressed(MOUSE_LEFT, false) then
-			
-	-- 	end
-	-- 	if self:IsKeyPressed(MOUSE_RIGHT, false) then
-			
-	-- 	end
-	-- end
-	-- if self:IsKeyPressed(KEY_R, false) then
-	-- 	self:UpdateToolMode()
-	-- end
 end
-
 
 function TOOL:Holster()
     self:SetOperation(0)
