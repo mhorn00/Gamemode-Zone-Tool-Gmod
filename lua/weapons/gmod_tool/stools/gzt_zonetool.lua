@@ -1,5 +1,6 @@
 AddCSLuaFile()
 include("includes/util/table.lua")
+include("includes/util/math.lua")
 
 TOOL.Category = "Zone Tool"
 TOOL.Name = "#tool.gzt_zonetool.name"
@@ -12,7 +13,6 @@ TOOL.InfoBoxHeight = 0;
 TOOL.ToolNameHeight = 0;
 TOOL.KeepNoHUDCL = false
 TOOL.PreviousDrawHelpState = -1
-TOOL.KeyTable={}
 TOOL.Modes = {
 	Loading = "Loading",
 	Create = "Create",
@@ -29,31 +29,21 @@ TOOL.ModeList = {
 	TOOL.Modes.TESTMODE2,
 	TOOL.Modes.TESTMODE3
 }
-TOOL.CurrentBox = {
-	Min = nil,
-	Max = nil,
-	Ent = nil
-}
+TOOL.KeyTable = {}
+TOOL.KeyCreationQueue = {}
+TOOL.KeyExecutionQueue = {}
+
 
 TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(this)
-	if(this.KeyTable[MOUSE_LEFT].checked) then return end
-	this.KeyTable[MOUSE_LEFT].checked = true
 	print("THIS IS SINGLE")
 end
 
 TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT] = function(this)
-	if(this.KeyTable[MOUSE_LEFT].checked && this.KeyTable[MOUSE_RIGHT].checked) then return end
-	this.KeyTable[MOUSE_LEFT].checked = true
-	this.KeyTable[MOUSE_RIGHT].checked = true
 	print("THIS IS DOUBLE (MLEFT+MRIGHT)")
 end
 
-TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT..KEY_E] = function(this)
-	if(this.KeyTable[MOUSE_LEFT].checked && this.KeyTable[MOUSE_RIGHT].checked && this.KeyTable[KEY_E].checked) then return end
-	this.KeyTable[MOUSE_LEFT].checked = true
-	this.KeyTable[MOUSE_RIGHT].checked = true
-	this.KeyTable[KEY_E].checked = true
-	print("THIS IS TRIPLE (MLEFT+MRIGHT+E)")
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT..MOUSE_MIDDLE] = function(this)
+	print("THIS IS TRIPLE (MLEFT+MRIGHT+MMIDDLE)")
 end
 
 function TOOL.BuildCPanel(CPanel)
@@ -87,58 +77,91 @@ function TOOL:Think()
 	end
 end
 
+function TOOL:ProcessKeys(keys)
+	PrintTable(keys)
+end
+
 function TOOL:PlayerButtonDown(key, ply)
-	--In this function self refers to the player holding the tool, not the tool itseld
+	-- --In this function self refers to the player holding the tool, not the tool itseld
+	-- if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
+	-- 	local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+	-- 	--{BOOL:is key pressed, BOOL:has key been checked for one time hit, INT:the enum int, INT:time the key has been pressed measured in calles of think (frames on client)}
+	-- 	toolInst.KeyTable[key] = {isPressed=true, checked=false, keyNum=key, timePressed=0}
+	-- end
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		if (!toolInst.KeyTable) then
-			toolInst.KeyTable = {};
-		end
-		if !toolInst.KeyTable[key] then
-			--{Is key currently pressed?, should fire only once?, has this value been checked?}
-			toolInst.KeyTable[key] = {isPressed=true, once=true, checked=false, keyNum=key}
+		toolInst.KeyTable[key] = {key=key, time=SysTime()}
+		if(!timer.Exists("gzt_wait_for_input")) then
+			timer.Create("gzt_wait_for_input", 0.05,1, function()
+				print(toolInst.KeyTable[key].key .. " ::: "..SysTime()-toolInst.KeyTable[key].time)
+				local copy = table.Copy(toolInst.KeyTable)
+				table.filter(copy, function(v)
+					==print(v.key .. " ::: "..SysTime()-v.time)
+					return (SysTime()-v.time)<=.05
+				end)
+				toolInst:ProcessKeys(copy)
+			end)
 		else
-			toolInst.KeyTable[key] = {isPressed=true, once=toolInst.KeyTable[key][2], checked=false, keyNum=key}
+			timer.Adjust("gzt_wait_for_input", 0.05,1, function()
+				local copy = table.Copy(toolInst.KeyTable)
+				table.filter(copy, function(v)
+					print(v.key .. " ::: "..SysTime()-v.time)
+					return (SysTime()-v.time)<=.05
+				end)
+				toolInst:ProcessKeys(copy)
+			end)
 		end
 	end
 end
 hook.Add("PlayerButtonDown", "ZoneToolKeyDown", TOOL.PlayerButtonDown)
 
 function TOOL:PlayerButtonUp(key, ply)
-	--In this function self refers to the player holding the tool
-	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
-		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		toolInst.KeyTable[key] = nil
-	end
+	-- --In this function self refers to the player holding the tool
+	-- 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
+	-- 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+	-- 		toolInst.KeyTable[key] = nil
+	-- 	end
 end
 hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
 
 function TOOL:ProcessInput()
-	// see if any currently pressed buttons are used in a multi keybind, if they are, start a timer and wait to do the check until its finished
-	--if gui && gui.IsGameUIVisible() then return end
-	for i,v in pairs(self.KeyTable) do
-		for j,v2 in pairs(self.KeyTable) do
-			if(i==j) then continue end
-			for k,v3 in pairs(self.KeyTable) do
-				if(k==j or i==k) then continue end
-				// check for triple
-				if(self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum..v3.keyNum]) then
-					self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum..v3.keyNum](self)
-					return
-				end
-			end
-			// check for double
-			if(self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum]) then
-				self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum](self)
-				return
-			end
-		end
-		if(self["KF"..self:GetToolMode()..v.keyNum]) then
-			self["KF"..self:GetToolMode()..v.keyNum](self)
-			return
-		end
-		// check for single
+	for k,v in pairs(self.KeyExecutionQueue) do
+
 	end
+	-- if SERVER then return end
+	-- if !IsFirstTimePredicted() then return end
+	-- --if gui && gui.IsGameUIVisible() then return end
+	-- for i,v in pairs(self.KeyTable) do
+	-- 	v.timePressed = v.timePressed+1
+	-- 	for j,v2 in pairs(self.KeyTable) do
+	-- 		if(i==j) then continue end
+	-- 		for k,v3 in pairs(self.KeyTable) do
+	-- 			if(k==j or i==k) then continue end
+	-- 			// check for triple
+	-- 			if(self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum..v3.keyNum]) then
+	-- 				if(math.abs(math.average(v.timePressed-v2.timePressed, v.timePressed-v3.timePressed, v2.timePressed-v3.timePressed)))<=DELAYTIME then
+	-- 					self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum..v3.keyNum](self)
+	-- 					return
+	-- 				end
+	-- 			end
+	-- 		end
+	-- 		// check for double
+	-- 		if(self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum]) then
+	-- 			if(math.abs(math.average(v.timePressed-v2.timePressed)))<=DELAYTIME then
+	-- 				self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum](self)
+	-- 				return
+	-- 			end
+	-- 		end
+	-- 	end
+	-- 	if(self["KF"..self:GetToolMode()..v.keyNum]) then
+	-- 		if(v.timePressed<=25 )then
+	-- 			self["KF"..self:GetToolMode()..v.keyNum](self)
+	-- 			return
+	-- 		end
+	-- 	end
+	-- 	// check for single
+	-- end
+	
 end
 
 function TOOL:Holster()
