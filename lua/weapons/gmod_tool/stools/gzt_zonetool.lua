@@ -4,6 +4,9 @@ include("includes/util/table.lua")
 TOOL.Category = "Zone Tool"
 TOOL.Name = "#tool.gzt_zonetool.name"
 TOOL.Command = "gmod_toolmode gzt_zonetool"
+TOOL.Author = "Sarcly & Intox"
+--Sarcly's comments
+//Intox's comments
 
 TOOL.InfoBoxHeight = 0;
 TOOL.ToolNameHeight = 0;
@@ -31,10 +34,26 @@ TOOL.CurrentBox = {
 	Max = nil,
 	Ent = nil
 }
-// TODO: Multi key keybinds
-TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(keyObj)
-	if(keyObj.checked) then return end
-	
+
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(this)
+	if(this.KeyTable[MOUSE_LEFT].checked) then return end
+	this.KeyTable[MOUSE_LEFT].checked = true
+	print("THIS IS SINGLE")
+end
+
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT] = function(this)
+	if(this.KeyTable[MOUSE_LEFT].checked && this.KeyTable[MOUSE_RIGHT].checked) then return end
+	this.KeyTable[MOUSE_LEFT].checked = true
+	this.KeyTable[MOUSE_RIGHT].checked = true
+	print("THIS IS DOUBLE (MLEFT+MRIGHT)")
+end
+
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT..KEY_E] = function(this)
+	if(this.KeyTable[MOUSE_LEFT].checked && this.KeyTable[MOUSE_RIGHT].checked && this.KeyTable[KEY_E].checked) then return end
+	this.KeyTable[MOUSE_LEFT].checked = true
+	this.KeyTable[MOUSE_RIGHT].checked = true
+	this.KeyTable[KEY_E].checked = true
+	print("THIS IS TRIPLE (MLEFT+MRIGHT+E)")
 end
 
 function TOOL.BuildCPanel(CPanel)
@@ -44,12 +63,13 @@ end
 
 function TOOL:GetToolMode()
     return self.ModeList[self:GetOperation()+1]
+	--+1 because glua tables start at 1 smh
 end
 
 function TOOL:GetToolModeOperation(operation)
 	return self.ModeList[operation+1]
 end
-
+ 
 function TOOL:UpdateToolMode()
 	if self:GetOperation() == 0 then
         self:SetOperation(1)
@@ -60,21 +80,10 @@ function TOOL:UpdateToolMode()
     end
 end
 
-function TOOL:Reload() // otherwise when u hit r it sets operation to 0 
-	return --this is bullshit and i hate it
-end
-
 function TOOL:Think()
 	self:ProcessInput()
 	if self:GetToolMode() == self.Modes.Loading then
 		self:UpdateToolMode()
-	end
-end
-
-function TOOL:KeyPress(keyObj,current_mode)
-	local index = table.indexOf(self.ModeList, current_mode)
-	if(self["KF"..current_mode..keyObj.keyNum]) then
-		self["KF"..current_mode..keyObj.keyNum](keyObj)
 	end
 end
 
@@ -91,7 +100,6 @@ function TOOL:PlayerButtonDown(key, ply)
 		else
 			toolInst.KeyTable[key] = {isPressed=true, once=toolInst.KeyTable[key][2], checked=false, keyNum=key}
 		end
-		//toolInst:KeyPress(toolInst.KeyTable[key],toolInst.ModeList[toolInst:GetOperation()+1])
 	end
 end
 hook.Add("PlayerButtonDown", "ZoneToolKeyDown", TOOL.PlayerButtonDown)
@@ -100,17 +108,36 @@ function TOOL:PlayerButtonUp(key, ply)
 	--In this function self refers to the player holding the tool
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		toolInst.KeyTable[key] = {isPressed=false, once=true,  checked=toolInst.KeyTable[key][3], keyNum=key}
+		toolInst.KeyTable[key] = nil
 	end
 end
 hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
 
 function TOOL:ProcessInput()
+	// see if any currently pressed buttons are used in a multi keybind, if they are, start a timer and wait to do the check until its finished
+	--if gui && gui.IsGameUIVisible() then return end
 	for i,v in pairs(self.KeyTable) do
-		if(v.isPressed) then
-			self:KeyPress(v,self.ModeList[self:GetOperation()+1])
-			self.KeyTable[i].checked = true
+		for j,v2 in pairs(self.KeyTable) do
+			if(i==j) then continue end
+			for k,v3 in pairs(self.KeyTable) do
+				if(k==j or i==k) then continue end
+				// check for triple
+				if(self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum..v3.keyNum]) then
+					self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum..v3.keyNum](self)
+					return
+				end
+			end
+			// check for double
+			if(self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum]) then
+				self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum](self)
+				return
+			end
 		end
+		if(self["KF"..self:GetToolMode()..v.keyNum]) then
+			self["KF"..self:GetToolMode()..v.keyNum](self)
+			return
+		end
+		// check for single
 	end
 end
 
@@ -121,6 +148,11 @@ function TOOL:Holster()
 		self.PreviousDrawHelpState = -1
 	end
 end
+
+function TOOL:Reload() // otherwise when u hit r it sets operation to 0 
+	return --this is bullshit and i hate it
+end
+
 
 function TOOL:DrawHUD() --CLIENT ONLY
 	if self.PreviousDrawHelpState == -1 then
