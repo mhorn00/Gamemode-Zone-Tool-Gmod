@@ -34,16 +34,23 @@ TOOL.KeyCreationQueue = {}
 TOOL.KeyExecutionQueue = {}
 
 
-TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(this)
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(self, key1)
+	if key1.processed then return end  
+
 	print("THIS IS SINGLE")
 end
 
-TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT] = function(this)
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT] = function(self,key1,key2)
+	if key1.processed || key2.processed then return end  
 	print("THIS IS DOUBLE (MLEFT+MRIGHT)")
 end
 
-TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT..MOUSE_MIDDLE] = function(this)
-	print("THIS IS TRIPLE (MLEFT+MRIGHT+MMIDDLE)")
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT..MOUSE_MIDDLE] = function(self,key1,key2,key3)
+	if key1.processed || key2.processed || key3.processed then return end  
+	print("THIS IS TRIPLE (MLEFT+MRIGHT+MMIDDLE)", self.COUNT)
+	PrintTable(key1)
+	PrintTable(key2) 
+	PrintTable(key3)
 end
 
 function TOOL.BuildCPanel(CPanel)
@@ -77,91 +84,69 @@ function TOOL:Think()
 	end
 end
 
-function TOOL:ProcessKeys(keys)
-	PrintTable(keys)
-end
-
 function TOOL:PlayerButtonDown(key, ply)
 	-- --In this function self refers to the player holding the tool, not the tool itseld
-	-- if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
-	-- 	local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-	-- 	--{BOOL:is key pressed, BOOL:has key been checked for one time hit, INT:the enum int, INT:time the key has been pressed measured in calles of think (frames on client)}
-	-- 	toolInst.KeyTable[key] = {isPressed=true, checked=false, keyNum=key, timePressed=0}
-	-- end
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		toolInst.KeyTable[key] = {key=key, time=SysTime()}
-		if(!timer.Exists("gzt_wait_for_input")) then
-			timer.Create("gzt_wait_for_input", 0.05,1, function()
-				print(toolInst.KeyTable[key].key .. " ::: "..SysTime()-toolInst.KeyTable[key].time)
-				local copy = table.Copy(toolInst.KeyTable)
-				table.filter(copy, function(v)
-					==print(v.key .. " ::: "..SysTime()-v.time)
-					return (SysTime()-v.time)<=.05
-				end)
-				toolInst:ProcessKeys(copy)
-			end)
-		else
-			timer.Adjust("gzt_wait_for_input", 0.05,1, function()
-				local copy = table.Copy(toolInst.KeyTable)
-				table.filter(copy, function(v)
-					print(v.key .. " ::: "..SysTime()-v.time)
-					return (SysTime()-v.time)<=.05
-				end)
-				toolInst:ProcessKeys(copy)
-			end)
-		end
+		toolInst.KeyTable[key] = {key=key, time=SysTime(), lifted=false, processed=false}
 	end
 end
 hook.Add("PlayerButtonDown", "ZoneToolKeyDown", TOOL.PlayerButtonDown)
 
 function TOOL:PlayerButtonUp(key, ply)
-	-- --In this function self refers to the player holding the tool
-	-- 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
-	-- 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-	-- 		toolInst.KeyTable[key] = nil
-	-- 	end
+    --In this function self refers to the player holding the tool
+	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
+		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+		--PrintTable(toolInst.KeyTable)
+		toolInst.KeyTable[key].lifted = true 
+	end
 end
 hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
 
+TOOL.DELAYTIME={0.2,0.3,}
+TOOL.COUNT = 0
 function TOOL:ProcessInput()
-	for k,v in pairs(self.KeyExecutionQueue) do
-
-	end
-	-- if SERVER then return end
-	-- if !IsFirstTimePredicted() then return end
+	self.COUNT=self.COUNT+1
+	if SERVER then return end
+	if !IsFirstTimePredicted() then return end
 	-- --if gui && gui.IsGameUIVisible() then return end
-	-- for i,v in pairs(self.KeyTable) do
-	-- 	v.timePressed = v.timePressed+1
-	-- 	for j,v2 in pairs(self.KeyTable) do
-	-- 		if(i==j) then continue end
-	-- 		for k,v3 in pairs(self.KeyTable) do
-	-- 			if(k==j or i==k) then continue end
-	-- 			// check for triple
-	-- 			if(self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum..v3.keyNum]) then
-	-- 				if(math.abs(math.average(v.timePressed-v2.timePressed, v.timePressed-v3.timePressed, v2.timePressed-v3.timePressed)))<=DELAYTIME then
-	-- 					self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum..v3.keyNum](self)
-	-- 					return
-	-- 				end
-	-- 			end
-	-- 		end
-	-- 		// check for double
-	-- 		if(self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum]) then
-	-- 			if(math.abs(math.average(v.timePressed-v2.timePressed)))<=DELAYTIME then
-	-- 				self["KF"..self:GetToolMode()..v.keyNum..v2.keyNum](self)
-	-- 				return
-	-- 			end
-	-- 		end
-	-- 	end
-	-- 	if(self["KF"..self:GetToolMode()..v.keyNum]) then
-	-- 		if(v.timePressed<=25 )then
-	-- 			self["KF"..self:GetToolMode()..v.keyNum](self)
-	-- 			return
-	-- 		end
-	-- 	end
-	-- 	// check for single
-	-- end
-	
+	local startTime = SysTime()
+	for i,v in pairs(self.KeyTable) do
+		for j,v2 in pairs(self.KeyTable) do
+			if(i==j) then continue end
+			for k,v3 in pairs(self.KeyTable) do
+				if(k==j or i==k) then continue end
+				// check for triple
+				if(math.abs(math.max(v.time-v2.time, v.time-v3.time, v2.time-v3.time)))<=self.DELAYTIME[1] && !(v.lifted && v.processed || v2.lifted && v2.processed || v3.lifted && v3.processed) then 
+					if(self["KF"..self:GetToolMode()..v.key..v2.key..v3.key]) then
+						self["KF"..self:GetToolMode()..v.key..v2.key..v3.key](self,v,v2,v3) 
+						v.processed=true
+						v2.processed=true
+						v3.processed=true
+					end
+				else
+					--print(math.abs(math.average(v.time-v2.time, v.time-v3.time, v2.time-v3.time)))
+				end
+			end
+			// check for double
+			if(math.abs(math.average(v.time-v2.time)))<=self.DELAYTIME[2]  && !(v.lifted && v.processed || v2.lifted && v2.processed) then
+				if(self["KF"..self:GetToolMode()..v.key..v2.key]) then 
+					self["KF"..self:GetToolMode()..v.key..v2.key](self,v,v2)
+					v.processed=true
+					v2.processed=true
+				end
+			end
+		end
+	end
+	--print(SysTime()-startTime)
+	for i,v in pairs(self.KeyTable) do
+		if !(v.lifted && v.processed) then
+			if(self["KF"..self:GetToolMode()..v.key]) then 
+				self["KF"..self:GetToolMode()..v.key](self,v)
+				v.processed=true
+			end
+		end
+	end
 end
 
 function TOOL:Holster()
