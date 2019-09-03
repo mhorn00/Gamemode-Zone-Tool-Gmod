@@ -34,34 +34,19 @@ TOOL.KeyCreationQueue = {}
 TOOL.KeyExecutionQueue = {}
 
 
-TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(self, key1)
-	if key1.processed then return end  
-	print("==================")
-	print("THIS IS SINGLE")
-	PrintTable(key1)
-	print("==================")
+TOOL["KF"..TOOL.Modes.Create..KEY_R] = function(self, KeyCombo)
+	--if KeyCombo.processed then return end  
+	self:GetOwner():ChatPrint("SINGLE")
 end
 
-TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT] = function(self,key1,key2)
-	if key1.processed || key2.processed then return end  
-	print("==================")
-	print("THIS IS DOUBLE (MLEFT+MRIGHT)")
-	PrintTable(key1)
-	print("===========")
-	PrintTable(key2) 
-	print("==================")
+TOOL["KF"..TOOL.Modes.Create..KEY_LSHIFT..KEY_R] = function(self, KeyCombo)
+	if KeyCombo.processed then return end  
+	self:GetOwner():ChatPrint("DOUBLE")
 end
 
-TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT..MOUSE_MIDDLE] = function(self,key1,key2,key3)
-	if key1.processed || key2.processed || key3.processed then return end  
-	print("==================")
-	print("THIS IS TRIPLE (MLEFT+MRIGHT+MMIDDLE)", self.COUNT)
-	PrintTable(key1)
-	print("===========")
-	PrintTable(key2) 
-	print("===========")
-	PrintTable(key3)
-	print("==================")
+TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_LSHIFT..KEY_R] = function(self, KeyCombo)
+	if KeyCombo.processed then return end
+	self:GetOwner():ChatPrint("TRIPLE")
 end
 
 function TOOL.BuildCPanel(CPanel)
@@ -96,7 +81,7 @@ function TOOL:Think()
 end
 
 function TOOL:PlayerButtonDown(key, ply)
-	--In this function self refers to the player holding the tool, not the tool itseld
+	--In this function self refers to the player holding the tool, not the tool itself
 	if CLIENT && !IsFirstTimePredicted() then return end 
 	if SERVER && !game.SinglePlayer() then return end
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
@@ -108,44 +93,84 @@ end
 hook.Add("PlayerButtonDown", "ZoneToolKeyDown", TOOL.PlayerButtonDown)
 
 function TOOL:PlayerButtonUp(key, ply)
-    --In this function self refers to the player holding the tool
+    --In this function self refers to the player holding the tool, not the tool itself
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		-- --PrintTable(toolInst.KeyTable)
 		toolInst.KeyTable[key] = nil
 	end
 end
 hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
 
+--Threshhold bettween keypresses
 TOOL.KEY_THRESHHOLD={0.15,0.2}
+--Delay before processing key
 TOOL.KEY_DELAY = {0.2,0.3,0.3}
 
+--TODO: TWEAK THE DELAYS TO BE NOT NOTICEABLE
 function TOOL:ProcessInput()
 	for i,key in pairs(self.KeyCreationQueue) do
 		if !key then continue end
-		if self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && self.KeyCreationQueue[i+2] then
+		if self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && self.KeyCreationQueue[i+2] && (self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key && self.KeyCreationQueue[i+1].key != self.KeyCreationQueue[i+2].key && self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+2].key) then
 			if math.min(SysTime()-self.KeyCreationQueue[i].time, SysTime()-self.KeyCreationQueue[i+1].time,SysTime()-self.KeyCreationQueue[i+2].time) >= self.KEY_DELAY[1] then
 				if math.abs(self.KeyCreationQueue[i].time-self.KeyCreationQueue[i+1].time) <= self.KEY_THRESHHOLD[1] && math.abs(self.KeyCreationQueue[i+1].time-self.KeyCreationQueue[i+2].time) <= self.KEY_THRESHHOLD[1] then
-					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i],key2=self.KeyCreationQueue[i+1],key3=self.KeyCreationQueue[i+2],type="TRIPLE"}
+					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], key3=self.KeyCreationQueue[i+2], comboType="TRIPLE", processed=false}
 					self.KeyCreationQueue[i]=nil
 					self.KeyCreationQueue[i+1]=nil
 					self.KeyCreationQueue[i+2]=nil
 				end
 			end
-		elseif self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] then
+		elseif self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && (self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key)then
 			if math.min(SysTime()-self.KeyCreationQueue[i].time, SysTime()-self.KeyCreationQueue[i+1].time) >= self.KEY_DELAY[2] then
 				if math.abs(self.KeyCreationQueue[i].time-self.KeyCreationQueue[i+1].time) <= self.KEY_THRESHHOLD[2] then
-					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i],key2=self.KeyCreationQueue[i+1],type="DOUBLE"}
+					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i],key2=self.KeyCreationQueue[i+1],comboType="DOUBLE", processed=false}
 					self.KeyCreationQueue[i]=nil
 					self.KeyCreationQueue[i+1]=nil
 				end
 			end 
 		elseif self.KeyCreationQueue[i] then
 			if SysTime()-self.KeyCreationQueue[i].time >= self.KEY_DELAY[3] then
-				self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i],type="SINGLE"}
+				self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], comboType="SINGLE", processed=false}
 				self.KeyCreationQueue[i]=nil
 			end
 		end
+	end
+	for i,KeyCombo in pairs(self.KeyExecutionQueue) do
+		--if key combo has been processed and is not held then remove it
+		if self.KeyExecutionQueue[i].processed then
+			if self.KeyExecutionQueue[i].comboType == "SINGLE" then
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] then
+					self.KeyExecutionQueue[i]=nil
+					continue
+				end
+			elseif self.KeyExecutionQueue[i].comboType == "DOUBLE" then
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] then
+					self.KeyExecutionQueue[i]=nil
+					continue
+				end
+			elseif self.KeyExecutionQueue[i].comboType == "TRIPLE" then
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] || !!self.KeyTable[self.KeyExecutionQueue[i].key3.key] then
+					self.KeyExecutionQueue[i]=nil
+					continue 
+				end
+			end
+		end
+		if self.KeyExecutionQueue[i].comboType == "SINGLE" then
+			if self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key] then
+				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key](self,self.KeyExecutionQueue[i])
+				self.KeyExecutionQueue[i].processed=true 
+			end
+		elseif self.KeyExecutionQueue[i].comboType == "DOUBLE" then
+			if self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key] then
+				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key](self,self.KeyExecutionQueue[i])
+				self.KeyExecutionQueue[i].processed=true 
+			end
+		elseif self.KeyExecutionQueue[i].comboType == "TRIPLE" then
+			if self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key3.key] then
+				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key3.key](self,self.KeyExecutionQueue[i])
+				self.KeyExecutionQueue[i].processed=true 
+			end
+		end
+
 	end
 end
 
