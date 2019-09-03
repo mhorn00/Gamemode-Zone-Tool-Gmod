@@ -108,12 +108,18 @@ TOOL.KEY_DELAY = {0.2,0.3,0.3}
 
 --TODO: TWEAK THE DELAYS TO BE NOT NOTICEABLE
 function TOOL:ProcessInput()
+	--CREATION OF KEY COMBOS
 	for i,key in pairs(self.KeyCreationQueue) do
 		if !key then continue end
+		--Are there atleast 3 keypresses in the queue that are different from eachother
 		if self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && self.KeyCreationQueue[i+2] && (self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key && self.KeyCreationQueue[i+1].key != self.KeyCreationQueue[i+2].key && self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+2].key) then
+			--Have they been in the queue for long enough to be sure we have all of the keys in that combo
 			if math.min(SysTime()-self.KeyCreationQueue[i].time, SysTime()-self.KeyCreationQueue[i+1].time,SysTime()-self.KeyCreationQueue[i+2].time) >= self.KEY_DELAY[1] then
+				--do they <= the threshhold to count as triple 
 				if math.abs(self.KeyCreationQueue[i].time-self.KeyCreationQueue[i+1].time) <= self.KEY_THRESHHOLD[1] && math.abs(self.KeyCreationQueue[i+1].time-self.KeyCreationQueue[i+2].time) <= self.KEY_THRESHHOLD[1] then
+					--add to execution
 					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], key3=self.KeyCreationQueue[i+2], comboType="TRIPLE", processed=false}
+					--remove from combo queue
 					self.KeyCreationQueue[i]=nil
 					self.KeyCreationQueue[i+1]=nil
 					self.KeyCreationQueue[i+2]=nil
@@ -134,7 +140,10 @@ function TOOL:ProcessInput()
 			end
 		end
 	end
+	--EXECUTION OF KEY COMBOS
 	for i,KeyCombo in pairs(self.KeyExecutionQueue) do
+		--FIXME:clear unused keybinds out of the execution queue bc they are there and really start to fill it up whoops
+		--PrintTable(self.KeyExecutionQueue) <-THIS FREEZES THE GAME LOL
 		--if key combo has been processed and is not held then remove it
 		if self.KeyExecutionQueue[i].processed then
 			if self.KeyExecutionQueue[i].comboType == "SINGLE" then
@@ -154,6 +163,7 @@ function TOOL:ProcessInput()
 				end
 			end
 		end
+		--run the fuction for the key combo if it exists
 		if self.KeyExecutionQueue[i].comboType == "SINGLE" then
 			if self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key] then
 				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key](self,self.KeyExecutionQueue[i])
@@ -170,7 +180,6 @@ function TOOL:ProcessInput()
 				self.KeyExecutionQueue[i].processed=true 
 			end
 		end
-
 	end
 end
 
