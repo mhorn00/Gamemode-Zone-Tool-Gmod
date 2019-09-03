@@ -36,21 +36,32 @@ TOOL.KeyExecutionQueue = {}
 
 TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(self, key1)
 	if key1.processed then return end  
-
+	print("==================")
 	print("THIS IS SINGLE")
+	PrintTable(key1)
+	print("==================")
 end
 
 TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT] = function(self,key1,key2)
 	if key1.processed || key2.processed then return end  
+	print("==================")
 	print("THIS IS DOUBLE (MLEFT+MRIGHT)")
+	PrintTable(key1)
+	print("===========")
+	PrintTable(key2) 
+	print("==================")
 end
 
 TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT..MOUSE_RIGHT..MOUSE_MIDDLE] = function(self,key1,key2,key3)
 	if key1.processed || key2.processed || key3.processed then return end  
+	print("==================")
 	print("THIS IS TRIPLE (MLEFT+MRIGHT+MMIDDLE)", self.COUNT)
 	PrintTable(key1)
+	print("===========")
 	PrintTable(key2) 
+	print("===========")
 	PrintTable(key3)
+	print("==================")
 end
 
 function TOOL.BuildCPanel(CPanel)
@@ -85,10 +96,13 @@ function TOOL:Think()
 end
 
 function TOOL:PlayerButtonDown(key, ply)
-	-- --In this function self refers to the player holding the tool, not the tool itseld
+	--In this function self refers to the player holding the tool, not the tool itseld
+	if CLIENT && !IsFirstTimePredicted() then return end 
+	if SERVER && !game.SinglePlayer() then return end
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		toolInst.KeyTable[key] = {key=key, time=SysTime(), lifted=false, processed=false}
+		toolInst.KeyTable[key] = {key=key, time=SysTime()} 
+		toolInst.KeyCreationQueue[#toolInst.KeyCreationQueue+1] = {key=key, time=SysTime()}
 	end
 end
 hook.Add("PlayerButtonDown", "ZoneToolKeyDown", TOOL.PlayerButtonDown)
@@ -97,53 +111,39 @@ function TOOL:PlayerButtonUp(key, ply)
     --In this function self refers to the player holding the tool
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		--PrintTable(toolInst.KeyTable)
-		toolInst.KeyTable[key].lifted = true 
+		-- --PrintTable(toolInst.KeyTable)
+		toolInst.KeyTable[key] = nil
 	end
 end
 hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
 
-TOOL.DELAYTIME={0.2,0.3,}
-TOOL.COUNT = 0
+TOOL.KEY_THRESHHOLD={0.15,0.2}
+TOOL.KEY_DELAY = {0.2,0.3,0.3}
+
 function TOOL:ProcessInput()
-	self.COUNT=self.COUNT+1
-	if SERVER then return end
-	if !IsFirstTimePredicted() then return end
-	-- --if gui && gui.IsGameUIVisible() then return end
-	local startTime = SysTime()
-	for i,v in pairs(self.KeyTable) do
-		for j,v2 in pairs(self.KeyTable) do
-			if(i==j) then continue end
-			for k,v3 in pairs(self.KeyTable) do
-				if(k==j or i==k) then continue end
-				// check for triple
-				if(math.abs(math.max(v.time-v2.time, v.time-v3.time, v2.time-v3.time)))<=self.DELAYTIME[1] && !(v.lifted && v.processed || v2.lifted && v2.processed || v3.lifted && v3.processed) then 
-					if(self["KF"..self:GetToolMode()..v.key..v2.key..v3.key]) then
-						self["KF"..self:GetToolMode()..v.key..v2.key..v3.key](self,v,v2,v3) 
-						v.processed=true
-						v2.processed=true
-						v3.processed=true
-					end
-				else
-					--print(math.abs(math.average(v.time-v2.time, v.time-v3.time, v2.time-v3.time)))
+	for i,key in pairs(self.KeyCreationQueue) do
+		if !key then continue end
+		if self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && self.KeyCreationQueue[i+2] then
+			if math.min(SysTime()-self.KeyCreationQueue[i].time, SysTime()-self.KeyCreationQueue[i+1].time,SysTime()-self.KeyCreationQueue[i+2].time) >= self.KEY_DELAY[1] then
+				if math.abs(self.KeyCreationQueue[i].time-self.KeyCreationQueue[i+1].time) <= self.KEY_THRESHHOLD[1] && math.abs(self.KeyCreationQueue[i+1].time-self.KeyCreationQueue[i+2].time) <= self.KEY_THRESHHOLD[1] then
+					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i],key2=self.KeyCreationQueue[i+1],key3=self.KeyCreationQueue[i+2],type="TRIPLE"}
+					self.KeyCreationQueue[i]=nil
+					self.KeyCreationQueue[i+1]=nil
+					self.KeyCreationQueue[i+2]=nil
 				end
 			end
-			// check for double
-			if(math.abs(math.average(v.time-v2.time)))<=self.DELAYTIME[2]  && !(v.lifted && v.processed || v2.lifted && v2.processed) then
-				if(self["KF"..self:GetToolMode()..v.key..v2.key]) then 
-					self["KF"..self:GetToolMode()..v.key..v2.key](self,v,v2)
-					v.processed=true
-					v2.processed=true
+		elseif self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] then
+			if math.min(SysTime()-self.KeyCreationQueue[i].time, SysTime()-self.KeyCreationQueue[i+1].time) >= self.KEY_DELAY[2] then
+				if math.abs(self.KeyCreationQueue[i].time-self.KeyCreationQueue[i+1].time) <= self.KEY_THRESHHOLD[2] then
+					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i],key2=self.KeyCreationQueue[i+1],type="DOUBLE"}
+					self.KeyCreationQueue[i]=nil
+					self.KeyCreationQueue[i+1]=nil
 				end
-			end
-		end
-	end
-	--print(SysTime()-startTime)
-	for i,v in pairs(self.KeyTable) do
-		if !(v.lifted && v.processed) then
-			if(self["KF"..self:GetToolMode()..v.key]) then 
-				self["KF"..self:GetToolMode()..v.key](self,v)
-				v.processed=true
+			end 
+		elseif self.KeyCreationQueue[i] then
+			if SysTime()-self.KeyCreationQueue[i].time >= self.KEY_DELAY[3] then
+				self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i],type="SINGLE"}
+				self.KeyCreationQueue[i]=nil
 			end
 		end
 	end
