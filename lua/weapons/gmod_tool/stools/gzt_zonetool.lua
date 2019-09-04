@@ -32,10 +32,13 @@ TOOL.ModeList = {
 TOOL.KeyTable = {}
 TOOL.KeyCreationQueue = {}
 TOOL.KeyExecutionQueue = {}
-
+TOOL.ModifierKeys = {}
+TOOL.ModifierKeys[KEY_LCONTROL] = true
+TOOL.ModifierKeys[KEY_LSHIFT] = true
+TOOL.ModifierKeys[KEY_LALT] = true
 
 TOOL["KF"..TOOL.Modes.Create..KEY_R] = function(self, KeyCombo)
-	--if KeyCombo.processed then return end  
+	if KeyCombo.processed then return end  
 	self:GetOwner():ChatPrint("SINGLE")
 end
 
@@ -97,6 +100,13 @@ function TOOL:PlayerButtonUp(key, ply)
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 		toolInst.KeyTable[key] = nil
+		if(toolInst.ModifierKeys[key]) then
+			for i,v in pairs(toolInst.KeyCreationQueue) do
+				if v.key == key then
+					toolInst.KeyCreationQueue[i] = nil
+				end
+			end
+		end
 	end
 end
 hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
@@ -104,37 +114,38 @@ hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
 --Threshhold bettween keypresses
 TOOL.KEY_THRESHHOLD={0.15,0.2}
 --Delay before processing key
-TOOL.KEY_DELAY = {0.2,0.3,0.3}
+TOOL.KEY_DELAY = {0.1,0.3,0.3}
 
 --TODO: TWEAK THE DELAYS TO BE NOT NOTICEABLE
 function TOOL:ProcessInput()
 	--CREATION OF KEY COMBOS
 	for i,key in pairs(self.KeyCreationQueue) do
-		if !key then continue end
-		--Are there atleast 3 keypresses in the queue that are different from eachother
+		if !self.KeyCreationQueue[i] then continue end
 		if self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && self.KeyCreationQueue[i+2] && (self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key && self.KeyCreationQueue[i+1].key != self.KeyCreationQueue[i+2].key && self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+2].key) then
-			--Have they been in the queue for long enough to be sure we have all of the keys in that combo
-			if math.min(SysTime()-self.KeyCreationQueue[i].time, SysTime()-self.KeyCreationQueue[i+1].time,SysTime()-self.KeyCreationQueue[i+2].time) >= self.KEY_DELAY[1] then
-				--do they <= the threshhold to count as triple 
-				if math.abs(self.KeyCreationQueue[i].time-self.KeyCreationQueue[i+1].time) <= self.KEY_THRESHHOLD[1] && math.abs(self.KeyCreationQueue[i+1].time-self.KeyCreationQueue[i+2].time) <= self.KEY_THRESHHOLD[1] then
-					--add to execution
+			if self.ModifierKeys[self.KeyCreationQueue[i].key] && self.ModifierKeys[self.KeyCreationQueue[i+1].key] then
+				if !self.ModifierKeys[self.KeyCreationQueue[i+2].key] then
 					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], key3=self.KeyCreationQueue[i+2], comboType="TRIPLE", processed=false}
-					--remove from combo queue
-					self.KeyCreationQueue[i]=nil
-					self.KeyCreationQueue[i+1]=nil
+					if !self.KeyTable[self.KeyCreationQueue[i].key] then
+						self.KeyCreationQueue[i] = nil
+					end
+					if !self.KeyTable[self.KeyCreationQueue[i+1].key] then
+						self.KeyCreationQueue[i+1] = nil
+					end
 					self.KeyCreationQueue[i+2]=nil
 				end
 			end
 		elseif self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && (self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key)then
-			if math.min(SysTime()-self.KeyCreationQueue[i].time, SysTime()-self.KeyCreationQueue[i+1].time) >= self.KEY_DELAY[2] then
-				if math.abs(self.KeyCreationQueue[i].time-self.KeyCreationQueue[i+1].time) <= self.KEY_THRESHHOLD[2] then
-					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i],key2=self.KeyCreationQueue[i+1],comboType="DOUBLE", processed=false}
-					self.KeyCreationQueue[i]=nil
+			if self.ModifierKeys[self.KeyCreationQueue[i].key] then
+				if !self.ModifierKeys[self.KeyCreationQueue[i+1].key] then
+					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], comboType="DOUBLE", processed=false}
+					if !self.KeyTable[self.KeyCreationQueue[i].key] then
+						self.KeyCreationQueue[i] = nil
+					end
 					self.KeyCreationQueue[i+1]=nil
 				end
-			end 
+			end
 		elseif self.KeyCreationQueue[i] then
-			if SysTime()-self.KeyCreationQueue[i].time >= self.KEY_DELAY[3] then
+			if !self.ModifierKeys[self.KeyCreationQueue[i].key] then
 				self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], comboType="SINGLE", processed=false}
 				self.KeyCreationQueue[i]=nil
 			end
@@ -142,9 +153,8 @@ function TOOL:ProcessInput()
 	end
 	--EXECUTION OF KEY COMBOS
 	for i,KeyCombo in pairs(self.KeyExecutionQueue) do
-		--FIXME:clear unused keybinds out of the execution queue bc they are there and really start to fill it up whoops
-		--PrintTable(self.KeyExecutionQueue) <-THIS FREEZES THE GAME LOL
 		--if key combo has been processed and is not held then remove it
+		if !self.KeyExecutionQueue[i] then continue end
 		if self.KeyExecutionQueue[i].processed then
 			if self.KeyExecutionQueue[i].comboType == "SINGLE" then
 				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] then
@@ -178,9 +188,16 @@ function TOOL:ProcessInput()
 			if self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key3.key] then
 				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key3.key](self,self.KeyExecutionQueue[i])
 				self.KeyExecutionQueue[i].processed=true 
+			elseif self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key3.key] then
+				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key3.key](self,self.KeyExecutionQueue[i])
+				self.KeyExecutionQueue[i].processed=true 
 			end
 		end
+		if(!self.KeyExecutionQueue[i].processed) then
+			self.KeyExecutionQueue[i]=nil
+		end
 	end
+
 end
 
 function TOOL:Holster()
@@ -200,6 +217,9 @@ function TOOL:DrawHUD() --CLIENT ONLY
 	if self.PreviousDrawHelpState == -1 then
 		self.PreviousDrawHelpState = GetConVar("gmod_drawhelp"):GetInt()
 		GetConVar("gmod_drawhelp"):SetInt(0)
+	end
+	if(self.SecondKeyQueue) then
+		draw.DrawText(table.ToString(self.SecondKeyQueue,"KeyCreationQueue", true), "DermaDefault",surface.ScreenWidth()-450, 150, Color(0,0,0))
 	end
 	if self.KeepNoHUDCL then return end
 	--Small rewrite of the sandbox STool draw HUD because I wanted to be able to use shift and ctrl as modifier keys for keybinds. Im very extra =)
