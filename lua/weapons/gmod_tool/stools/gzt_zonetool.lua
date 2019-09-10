@@ -36,20 +36,51 @@ TOOL.ModifierKeys = {}
 TOOL.ModifierKeys[KEY_LCONTROL] = true
 TOOL.ModifierKeys[KEY_LSHIFT] = true
 TOOL.ModifierKeys[KEY_LALT] = true
+TOOL.CurrentBox = {
+	MinBound=nil,
+	MaxBound=nil,
+	Ent=nil
+}
 
-TOOL["KF"..TOOL.Modes.Create..KEY_R] = function(self, KeyCombo)
-	if KeyCombo.processed then return end  
-	self:GetOwner():ChatPrint("SINGLE")
+for k,v in pairs(TOOL.Modes) do
+	TOOL["KF"..v..KEY_R] = function(self, KeyCombo)
+		if KeyCombo.processed then return end
+		self:UpdateToolMode()
+	end
 end
 
-TOOL["KF"..TOOL.Modes.Create..KEY_LSHIFT..KEY_R] = function(self, KeyCombo)
-	if KeyCombo.processed then return end  
-	self:GetOwner():ChatPrint("DOUBLE")
-end
-
-TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_LSHIFT..KEY_R] = function(self, KeyCombo)
+TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(self, KeyCombo)
 	if KeyCombo.processed then return end
-	self:GetOwner():ChatPrint("TRIPLE")
+	self.CurrentBox.MinBound=self:GetOwner():GetPos()
+	if self.CurrentBox && self.CurrentBox.MinBound && self.CurrentBox.MaxBound then
+		self:MakeBox()
+	end
+end
+
+TOOL["KF"..TOOL.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
+	if KeyCombo.processed then return end
+	self.CurrentBox.MaxBound=self:GetOwner():GetPos()
+	if self.CurrentBox && self.CurrentBox.MinBound && self.CurrentBox.MaxBound then
+		self:MakeBox()
+	end
+end
+
+TOOL["KF"..TOOL.Modes.Create..KEY_LSHIFT..MOUSE_LEFT] = function(self, KeyCombo)
+	if KeyCombo.processed then return end
+	self.CurrentBox.MinBound=nil
+	self.CurrentBox.Ent=nil
+end
+
+TOOL["KF"..TOOL.Modes.Create..KEY_LSHIFT..MOUSE_RIGHT] = function(self, KeyCombo)
+	if KeyCombo.processed then return end
+	self.CurrentBox.MaxBound=nil
+	self.CurrentBox.Ent=nil
+end
+
+
+TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_E] = function(self, KeyCombo)
+	if KeyCombo.processed then return end
+	PrintTable(self.CurrentBox)
 end
 
 function TOOL.BuildCPanel(CPanel)
@@ -83,10 +114,20 @@ function TOOL:Think()
 	end
 end
 
+function TOOL:MakeBox() --SERVER ONLY
+	if CLIENT then return end
+	if !IsValid(self.CurrentBox.Ent) then
+		self.CurrentBox.Ent=ents.Create("gzt_zone")
+		self.CurrentBox.Ent:Spawn()
+	end
+	print(self.CurrentBox.Ent)
+	self.CurrentBox.Ent:SetMinBound(self.CurrentBox.MinBound)
+	self.CurrentBox.Ent:SetMaxBound(self.CurrentBox.MaxBound)
+end
+
 function TOOL:PlayerButtonDown(key, ply)
 	--In this function self refers to the player holding the tool, not the tool itself
 	if CLIENT && !IsFirstTimePredicted() then return end 
-	if SERVER && !game.SinglePlayer() then return end
 	if(self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gmod_tool" && self:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
 		local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 		toolInst.KeyTable[key] = {key=key, time=SysTime()} 
@@ -399,9 +440,19 @@ end
 function TOOL:DrawToolScreen(width, height)
 	surface.SetDrawColor( Color( 20, 20, 20 ) )
 	surface.DrawRect( 0, 0, width, height )
-	draw.SimpleText( self:GetToolMode(), "DermaLarge", width / 2, height / 2, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+	draw.SimpleText( self:GetToolMode(), "DermaLarge", width / 2, height / 4, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+	if self.CurrentBox.MinBound && self:GetToolMode()=="Create" then
+		draw.SimpleText( math.Round(self.CurrentBox.MinBound.x,2), "DermaLarge", width / 5, height / 2.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		draw.SimpleText( math.Round(self.CurrentBox.MinBound.y,2), "DermaLarge", width / 5, height / 1.9, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		draw.SimpleText( math.Round(self.CurrentBox.MinBound.z,2), "DermaLarge", width / 5, height / 1.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+	end
+	if self.CurrentBox.MaxBound && self:GetToolMode()=="Create" then
+		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.x,2), "DermaLarge", width / 1.35, height / 2.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.y,2), "DermaLarge", width / 1.35, height / 1.9, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.z,2), "DermaLarge", width / 1.35, height / 1.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+	end	
 end
-
+//math.Round(self.CurrentBox.MinBound.y,1)..":"..math.Round(self.CurrentBox.MinBound.z,1)
 if CLIENT then
     TOOL.Information={
 		{name=TOOL.Modes.Loading, op=0},
