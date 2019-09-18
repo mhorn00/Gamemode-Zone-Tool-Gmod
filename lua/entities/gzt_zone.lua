@@ -29,7 +29,6 @@ end
 
 function ENT:OnMaxBoundChanged(name,old, new)
 	if CLIENT then
-		print("setting renderbounds ... ")
 		if(self:GetMinBound() && self:GetMaxBound()) then
 			self:SetRenderBoundsWS(self:GetMinBound(), new)
 		end
@@ -39,7 +38,7 @@ end
 function ENT:Think()
 	if(CLIENT) then
 		if(self:GetMinBound() and self:GetMaxBound()) then
-			self:SetRenderBoundsWS(Vector(-1000, -1000,-1000), Vector(1000,1000,1000))
+			self:SetRenderBoundsWS(self:GetMinBound(), self:GetMaxBound())
 		end
 	end
 end
@@ -64,8 +63,6 @@ end
 function ENT:DrawTranslucent()
 	cam.Start3D()
 		local rb1,rb2 = self:GetRenderBounds()
-		print(rb1,rb2)
 		render.DrawWireframeBox(Vector(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), self:GetColor(), false)
-		render.DrawWireframeBox(Vector(), self:GetAngles(), rb1, rb2, Color(255,0,45), false)
 	cam.End3D()
 end

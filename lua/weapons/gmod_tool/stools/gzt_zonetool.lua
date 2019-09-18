@@ -8,7 +8,6 @@ TOOL.Command = "gmod_toolmode gzt_zonetool"
 TOOL.Author = "Sarcly & Intox"
 --Sarcly's comments
 //Intox's comments
-
 TOOL.InfoBoxHeight = 0;
 TOOL.ToolNameHeight = 0;
 TOOL.KeepNoHUDCL = false
@@ -42,9 +41,33 @@ TOOL.CurrentBox = {
 	Ent=nil
 }
 
+if(SERVER) then
+	PausedPlayers={}
+	util.AddNetworkString("playerPaused")
+	util.AddNetworkString("playerUnpaused")
+	net.Receive("playerPaused", function(len, ply)
+		if (IsValid(ply) and ply:IsPlayer()) then
+			PausedPlayers[ply:AccountID()] = true
+			local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+			toolInst.KeyCreationQueue = {}
+			toolInst.KeyExecutionQueue = {}
+		end
+	end)
+
+	net.Receive("playerUnpaused", function(len, ply)
+		if (IsValid(ply) and ply:IsPlayer()) then
+			PausedPlayers[ply:AccountID()] = nil
+			local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+			toolInst.KeyCreationQueue = {}
+			toolInst.KeyExecutionQueue = {}
+		end
+	end)
+end
+
 for k,v in pairs(TOOL.Modes) do
 	TOOL["KF"..v..KEY_R] = function(self, KeyCombo)
 		if KeyCombo.processed then return end
+		print("RR")
 		self:UpdateToolMode()
 	end
 end
@@ -65,16 +88,26 @@ TOOL["KF"..TOOL.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
 	end
 end
 
-TOOL["KF"..TOOL.Modes.Create..KEY_LSHIFT..MOUSE_LEFT] = function(self, KeyCombo)
+TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..MOUSE_LEFT] = function(self, KeyCombo)
 	if KeyCombo.processed then return end
-	self.CurrentBox.MinBound=nil
-	self.CurrentBox.Ent=nil
+	if self.CurrentBox.Ent then
+		self:DeleteBox()
+		self.CurrentBox.Ent=nil
+	end
+	if self.CurrentBox.MinBound then
+		self.CurrentBox.MinBound=nil
+	end
 end
 
-TOOL["KF"..TOOL.Modes.Create..KEY_LSHIFT..MOUSE_RIGHT] = function(self, KeyCombo)
+TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCombo)
 	if KeyCombo.processed then return end
-	self.CurrentBox.MaxBound=nil
-	self.CurrentBox.Ent=nil
+	if self.CurrentBox.Ent then
+		self:DeleteBox()
+		self.CurrentBox.Ent=nil
+	end
+	if self.CurrentBox.MaxBound then
+		self.CurrentBox.MaxBound=nil
+	end
 end
 
 
@@ -108,7 +141,24 @@ function TOOL:UpdateToolMode()
 end
 
 function TOOL:Think()
-	self:ProcessInput()
+	if CLIENT && (gui && gui.IsGameUIVisible()) && !self.isPaused then
+		self.isPaused = true
+		net.Start("playerPaused")
+			net.WriteString("")
+		net.SendToServer()
+		self.KeyExecutionQueue = {}
+		self.KeyCreationQueue = {}
+	elseif CLIENT && (gui && !gui.IsGameUIVisible()) && self.isPaused then
+		self.isPaused = false
+		net.Start("playerUnpaused")
+			net.WriteString("")
+		net.SendToServer()
+		self.KeyExecutionQueue = {}
+		self.KeyCreationQueue = {}
+	end
+	if ((gui && !gui.IsGameUIVisible()) || (SERVER && !PausedPlayers[self:GetOwner():AccountID()])) then
+		self:ProcessInput()
+	end
 	if self:GetToolMode() == self.Modes.Loading then
 		self:UpdateToolMode()
 	end
@@ -120,9 +170,15 @@ function TOOL:MakeBox() --SERVER ONLY
 		self.CurrentBox.Ent=ents.Create("gzt_zone")
 		self.CurrentBox.Ent:Spawn()
 	end
-	print(self.CurrentBox.Ent)
 	self.CurrentBox.Ent:SetMinBound(self.CurrentBox.MinBound)
 	self.CurrentBox.Ent:SetMaxBound(self.CurrentBox.MaxBound)
+end
+
+function TOOL:DeleteBox() 
+	if CLIENT then return end
+	if(self.CurrentBox && IsValid(self.CurrentBox.Ent)) then
+		self.CurrentBox.Ent:Remove()
+	end
 end
 
 function TOOL:PlayerButtonDown(key, ply)
