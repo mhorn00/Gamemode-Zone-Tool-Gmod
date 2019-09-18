@@ -170,8 +170,7 @@ function TOOL:MakeBox() --SERVER ONLY
 		self.CurrentBox.Ent=ents.Create("gzt_zone")
 		self.CurrentBox.Ent:Spawn()
 	end
-	self.CurrentBox.Ent:SetMinBound(self.CurrentBox.MinBound)
-	self.CurrentBox.Ent:SetMaxBound(self.CurrentBox.MaxBound)
+	self.CurrentBox.Ent:Setup(self.CurrentBox.MinBound, self.CurrentBox.MaxBound)
 end
 
 function TOOL:DeleteBox() 
@@ -292,6 +291,9 @@ function TOOL:ProcessInput()
 			if self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key] then
 				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key](self,self.KeyExecutionQueue[i])
 				self.KeyExecutionQueue[i].processed=true 
+			elseif self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key2.key] then
+				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key2.key](self,self.KeyExecutionQueue[i])
+				self.KeyExecutionQueue[i].processed=true 
 			end
 		elseif self.KeyExecutionQueue[i].comboType == "TRIPLE" then
 			if self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key3.key] then
@@ -299,6 +301,9 @@ function TOOL:ProcessInput()
 				self.KeyExecutionQueue[i].processed=true 
 			elseif self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key3.key] then
 				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key3.key](self,self.KeyExecutionQueue[i])
+				self.KeyExecutionQueue[i].processed=true 
+			elseif self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key3.key] then
+				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key3.key](self,self.KeyExecutionQueue[i])
 				self.KeyExecutionQueue[i].processed=true 
 			end
 		elseif self.KeyExecutionQueue[i].comboType == "QUADRUPLE" then
@@ -320,6 +325,9 @@ function TOOL:ProcessInput()
 			elseif self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key3.key..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key4.key] then
 				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key3.key..self.KeyExecutionQueue[i].key2.key..self.KeyExecutionQueue[i].key1.key..self.KeyExecutionQueue[i].key4.key](self,self.KeyExecutionQueue[i])
 				self.KeyExecutionQueue[i].processed=true
+			elseif self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key4.key] then
+				self["KF"..self:GetToolMode()..self.KeyExecutionQueue[i].key4.key](self,self.KeyExecutionQueue[i])
+				self.KeyExecutionQueue[i].processed=true 
 			end
 		end
 		if(!self.KeyExecutionQueue[i].processed) then
