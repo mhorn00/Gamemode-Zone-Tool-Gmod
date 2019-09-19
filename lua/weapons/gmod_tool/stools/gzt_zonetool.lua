@@ -1,6 +1,4 @@
 AddCSLuaFile()
-include("includes/util/table.lua")
-include("includes/util/math.lua")
 
 TOOL.Category = "Zone Tool"
 TOOL.Name = "#tool.gzt_zonetool.name"
@@ -67,7 +65,6 @@ end
 for k,v in pairs(TOOL.Modes) do
 	TOOL["KF"..v..KEY_R] = function(self, KeyCombo)
 		if KeyCombo.processed then return end
-		print("RR")
 		self:UpdateToolMode()
 	end
 end
@@ -114,6 +111,16 @@ end
 TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_E] = function(self, KeyCombo)
 	if KeyCombo.processed then return end
 	PrintTable(self.CurrentBox)
+end
+
+TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
+	tr = self:GetOwner():GetEyeTrace()
+	if(tr.Hit && tr.Entity && !tr.HitWorld) then
+		PrintTable(tr)
+	end
+	if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner") then
+		self:GetOwner():ChatPrint("hit corner")
+	end
 end
 
 function TOOL.BuildCPanel(CPanel)
@@ -338,6 +345,10 @@ function TOOL:ProcessInput()
 end
 
 function TOOL:Holster()
+	self:DeleteBox()
+	self.CurrentBox.Ent=nil
+	self.CurrentBox.MinBound=nil 
+	self.CurrentBox.MaxBound=nil
     self:SetOperation(0)
 	if CLIENT then
 		GetConVar("gmod_drawhelp"):SetInt(self.PreviousDrawHelpState)
