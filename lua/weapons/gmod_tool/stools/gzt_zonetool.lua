@@ -114,7 +114,7 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_E] = function(self, KeyCombo)
 end
 
 TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
-	tr = self:GetOwner():GetEyeTrace()
+	tr = self:GetOwner():GetEyeTrace()w
 	if(tr.Hit && tr.Entity && !tr.HitWorld) then
 		PrintTable(tr)
 	end

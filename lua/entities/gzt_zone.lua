@@ -23,6 +23,9 @@ ENT.FACE_ENUM = {
 	ENT.FACE_ANGLES.up,
 }
 
+ENT.Corners = {}
+ENT.CornerEnts = {}
+
 function ENT:SetupDataTables()
 	self:NetworkVar("Vector",0,"MinBound")
 	self:NetworkVar("Vector",1,"MaxBound")
@@ -30,20 +33,43 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Setup(min,max)
+	if(self.CornerEnts && #self.CornerEnts != 0) then
+		for k,v in pairs(self.CornerEnts) do
+			if(IsValid(v)) then
+				v:Remove()
+			end
+		end
+	end
 	vec1 = Vector(min)
 	vec2 = Vector(max)
 	OrderVectors(vec1,vec2)
 	self:SetPos(Lerp(0.5,vec1,vec2))
 	self:SetMinBound(vec1)
 	self:SetMaxBound(vec2)
+	self:PhysicsInitBox(vec1-self:GetPos(),vec2-self:GetPos())
+	local diff_vector = self:GetMaxBound() - self:GetMinBound()
+	local smallest_side = math.min(diff_vector.x, diff_vector.y, diff_vector.z)
+	for i = 0, 7 do
+		local maxBound = self:GetMaxBound()
+		local minBound = self:GetMinBound()
+		local x = bit.band(i, 1) == 0 and maxBound.x or minBound.x
+		local y = bit.band(i, 2) == 0 and maxBound.y or minBound.y
+		local z = bit.band(i, 4) == 0 and maxBound.z or minBound.z
+		self.Corners[i + 1] = Vector(x, y, z)
+		self.CornerEnts[i + 1] = ents.Create("gzt_zonecorner")
+		self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
+		self.CornerEnts[i+1]:Setup(smallest_side)
+		self.CornerEnts[i+1]:SetOwner(self:GetOwner())
+		self.CornerEnts[i+1]:Spawn()
+	end
 end
 
 
 function ENT:Think()
 	if CLIENT then
 		if(self:GetMinBound() && self:GetMaxBound()) then
-			self:SetRenderOrigin(Lerp(.5,self:GetMinBound(),self:GetMaxBound()))
 			self:SetRenderBounds(self:GetMinBound()-self:GetPos(), self:GetMaxBound()-self:GetPos())
+			self:SetRenderOrigin(Lerp(0.5, self:GetMinBound(),self:GetMaxBound()))
 		end
 	end
 end
@@ -54,13 +80,13 @@ function ENT:Initialize()
 	self:SetMoveType(MOVETYPE_NONE)
     self:SetCollisionGroup(COLLISION_GROUP_WORLD)
     self:EnableCustomCollisions(true)
-	self:SetRenderMode(RENDERMODE_TRANSCOLOR)
 end
 
 function ENT:Draw()
-	print("FSDHJK")
+	--self:DrawModel()
 	cam.Start3D()
 		local rb1,rb2 = self:GetRenderBounds()
+		local waabb1, waabb2 = self:WorldSpaceAABB() 
 		render.DrawWireframeBox(Vector(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(255,0,0,255), false)
 	cam.End3D()
 	local center = Lerp(0.5, self:GetMinBound(), self:GetMaxBound())
@@ -91,5 +117,13 @@ function ENT:Draw()
 			surface.SetDrawColor(0, 0, 0, 200)
 			surface.DrawTexturedRect(-smallest_side/2, -smallest_side/2, smallest_side, smallest_side)
 		cam.End3D2D()
+	end
+end
+
+function ENT:OnRemove()
+	if(SERVER && self.CornerEnts &&  #self.CornerEnts!=0) then
+		for k,v in pairs(self.CornerEnts) do
+			v:Remove()
+		end
 	end
 end

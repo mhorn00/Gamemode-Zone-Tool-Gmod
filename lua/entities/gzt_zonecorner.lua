@@ -8,26 +8,37 @@ ENT.Editable = true
 ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
  
 function ENT:Initialize()
-    self:SetModel("models/hunter/blocks/cube025x025x025.mdl")
+    self:SetModel("")
     self:SetMoveType(MOVETYPE_FLY)
     self:SetCollisionGroup(COLLISION_GROUP_WORLD)
-    //self:EnableCustomCollisions(true)
+    self:EnableCustomCollisions(true)
     self:DrawShadow(false)
-    self:PhysicsInit()
     if(SERVER) then
-        self:Wake()
+        //self:Wake()
     end
 end
 
-function ENT:Draw()
-    self:DrawModel()
-    cam.Start3D()
-        render.DrawWireframeSphere(self:GetPos(),10, 5, 5)
-    cam.End3D()
+function ENT:PhysicsCollide(colData, collider)
+    if(colData.HitEntity)
 end
 
-function ENT:Think()
-    -- if(SERVER && !IsValid(self:GetParent())) then
-        -- self:Remove()
-    -- end
+function ENT:SetupDataTables()
+    self:NetworkVar("Int", 0, "Size")
+end
+
+function ENT:Setup(size)
+    local size = math.max(math.min(size/8,150),10)
+    self:PhysicsInitBox(self:GetPos()-Vector(1,1,1)*size, self:GetPos()+Vector(1,1,1)*size)
+    self:SetSize(size)
+end
+
+function ENT:Think()        
+    self:SetCollisionBounds(Vector(1,1,1)*-self:GetSize(), Vector(1,1,1)*self:GetSize())
+end
+
+function ENT:Draw()
+    local cb1 ,cb2 = self:GetCollisionBounds()
+    cam.Start3D()
+        render.DrawWireframeBox(self:GetPos(), self:GetAngles(), cb1, cb2, Color(255,255,255,255))
+    cam.End3D()
 end
