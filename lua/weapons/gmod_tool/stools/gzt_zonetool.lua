@@ -113,13 +113,20 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_E] = function(self, KeyCombo)
 	PrintTable(self.CurrentBox)
 end
 
+TOOL.SelectedCorner = nil
+
 TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
-	tr = self:GetOwner():GetEyeTrace()w
-	if(tr.Hit && tr.Entity && !tr.HitWorld) then
-		PrintTable(tr)
+	if KeyCombo.processed && KeyCombo.released and IsValid(self.SelectedCorner) then
+		self.SelectedCorner:SetColor(Color(255,255,255,255))
+		self.SelectedCorner = nil
+		return
 	end
-	if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner") then
-		self:GetOwner():ChatPrint("hit corner")
+	if(!IsValid(self.SelectedCorner)) then
+		tr = self:GetOwner():GetEyeTrace()
+		if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner") then
+			self.SelectedCorner = tr.Entity
+			self.SelectedCorner:SetColor(Color(0,0,255,255))
+		end
 	end
 end
 
@@ -222,7 +229,7 @@ function TOOL:ProcessInput()
 			if self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key && self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+2].key && self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+3].key && self.KeyCreationQueue[i+1].key != self.KeyCreationQueue[i+2].key && self.KeyCreationQueue[i+1].key != self.KeyCreationQueue[i+3].key && self.KeyCreationQueue[i+2].key != self.KeyCreationQueue[i+3].key then
 				if self.ModifierKeys[self.KeyCreationQueue[i].key] && self.ModifierKeys[self.KeyCreationQueue[i+1].key] && self.ModifierKeys[self.KeyCreationQueue[i+2].key] then
 					if !self.ModifierKeys[self.KeyCreationQueue[i+3].key] then
-						self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], key3=self.KeyCreationQueue[i+2], key4=self.KeyCreationQueue[i+3], comboType="QUADRUPLE", processed=false}
+						self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], key3=self.KeyCreationQueue[i+2], key4=self.KeyCreationQueue[i+3], comboType="QUADRUPLE", processed=false, released=false}
 						if !self.KeyTable[self.KeyCreationQueue[i].key] then
 							self.KeyCreationQueue[i] = nil
 						end
@@ -239,7 +246,7 @@ function TOOL:ProcessInput()
 		elseif self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && self.KeyCreationQueue[i+2] && (self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key && self.KeyCreationQueue[i+1].key != self.KeyCreationQueue[i+2].key && self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+2].key) then
 			if self.ModifierKeys[self.KeyCreationQueue[i].key] && self.ModifierKeys[self.KeyCreationQueue[i+1].key] then
 				if !self.ModifierKeys[self.KeyCreationQueue[i+2].key] then
-					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], key3=self.KeyCreationQueue[i+2], comboType="TRIPLE", processed=false}
+					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], key3=self.KeyCreationQueue[i+2], comboType="TRIPLE", processed=false, released=false}
 					if !self.KeyTable[self.KeyCreationQueue[i].key] then
 						self.KeyCreationQueue[i] = nil
 					end
@@ -249,10 +256,10 @@ function TOOL:ProcessInput()
 					self.KeyCreationQueue[i+2]=nil
 				end
 			end
-		elseif self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && (self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key)then
+		elseif self.KeyCreationQueue[i] && self.KeyCreationQueue[i+1] && (self.KeyCreationQueue[i].key != self.KeyCreationQueue[i+1].key) then
 			if self.ModifierKeys[self.KeyCreationQueue[i].key] then
 				if !self.ModifierKeys[self.KeyCreationQueue[i+1].key] then
-					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], comboType="DOUBLE", processed=false}
+					self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], key2=self.KeyCreationQueue[i+1], comboType="DOUBLE", processed=false, released=false}
 					if !self.KeyTable[self.KeyCreationQueue[i].key] then
 						self.KeyCreationQueue[i] = nil
 					end
@@ -261,7 +268,7 @@ function TOOL:ProcessInput()
 			end
 		elseif self.KeyCreationQueue[i] then
 			if !self.ModifierKeys[self.KeyCreationQueue[i].key] then
-				self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], comboType="SINGLE", processed=false}
+				self.KeyExecutionQueue[#self.KeyExecutionQueue+1] = {key1=self.KeyCreationQueue[i], comboType="SINGLE", processed=false, released=false}
 				self.KeyCreationQueue[i]=nil
 			end
 		end
@@ -273,18 +280,15 @@ function TOOL:ProcessInput()
 		if self.KeyExecutionQueue[i].processed then
 			if self.KeyExecutionQueue[i].comboType == "SINGLE" then
 				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] then
-					self.KeyExecutionQueue[i]=nil
-					continue
+					self.KeyExecutionQueue[i].released=true
 				end
 			elseif self.KeyExecutionQueue[i].comboType == "DOUBLE" then
 				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] then
-					self.KeyExecutionQueue[i]=nil
-					continue
+					self.KeyExecutionQueue[i].released=true
 				end
 			elseif self.KeyExecutionQueue[i].comboType == "TRIPLE" then
-				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] || !!self.KeyTable[self.KeyExecutionQueue[i].key3.key] then
-					self.KeyExecutionQueue[i]=nil
-					continue 
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] || !self.KeyTable[self.KeyExecutionQueue[i].key3.key] then
+					self.KeyExecutionQueue[i].released=true
 				end
 			end
 		end
@@ -337,6 +341,24 @@ function TOOL:ProcessInput()
 				self.KeyExecutionQueue[i].processed=true 
 			end
 		end
+		if self.KeyExecutionQueue[i].processed && self.KeyExecutionQueue[i].released then
+			if self.KeyExecutionQueue[i].comboType == "SINGLE" then
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] then
+					self.KeyExecutionQueue[i]=nil
+					continue
+				end
+			elseif self.KeyExecutionQueue[i].comboType == "DOUBLE" then
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] then
+					self.KeyExecutionQueue[i]=nil
+					continue
+				end
+			elseif self.KeyExecutionQueue[i].comboType == "TRIPLE" then
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] || !self.KeyTable[self.KeyExecutionQueue[i].key3.key] then
+					self.KeyExecutionQueue[i]=nil
+					continue 
+				end
+			end
+		end
 		if(!self.KeyExecutionQueue[i].processed) then
 			self.KeyExecutionQueue[i]=nil
 		end
@@ -360,8 +382,7 @@ function TOOL:Reload() // otherwise when u hit r it sets operation to 0
 	return --this is bullshit and i hate it
 end
 
-
-function TOOL:DrawHUD() --CLIENT ONLY
+function TOOL:DrawHUD() --CLIENT ONLY)
 	if self.PreviousDrawHelpState == -1 then
 		self.PreviousDrawHelpState = GetConVar("gmod_drawhelp"):GetInt()
 		GetConVar("gmod_drawhelp"):SetInt(0)
@@ -407,7 +428,6 @@ function TOOL:DrawHUD() --CLIENT ONLY
 	draw.TexturedQuad(QuadTable)
 	y = y + 4
 	TextTable.font = "GModToolHelp"
-
 	if (not self.formation) then
 		TextTable.pos = {x + self.InfoBoxHeight, y}
 		TextTable.text = self:GetHelpText()
@@ -416,12 +436,9 @@ function TOOL:DrawHUD() --CLIENT ONLY
 		surface.SetTexture(surface.GetTextureID("gui/info"))
 		surface.DrawTexturedRect(x + 1, y + 1, h - 3, h - 3)
 		self.InfoBoxHeight = h + 8
-
 		return
 	end
-
 	local h2 = 0
-
 	--Loop over all entrys in Information and populate them
 	for k, v in pairs(self.Information) do
 		-- If element of Information is just a string then make it a table containg the string in name ("string"->{name="string"})
@@ -430,20 +447,16 @@ function TOOL:DrawHUD() --CLIENT ONLY
 				name = v
 			}
 		end
-
 		if (not v.name) then continue end --If no name then skip
 		if (v.stage and v.stage ~= self:GetStage()) then continue end --If stage if not correct then skip
 		if (v.op and v.op ~= self:GetOperation()) then continue end --If operation not correct then skip
 		local txt = "#tool." .. GetConVarString("gmod_toolmode") .. "." .. v.name
-
 		if (v.name == "info") then
 			txt = self:GetHelpText()
 		end
-
 		TextTable.text = txt
 		TextTable.pos = {x + 21, y + h2}
 		w, h = draw.TextShadow(TextTable, 1)
-
 		--Shortcuts for icons in info space
 		if (not v.icon) then
 			if (v.name:StartWith("info")) then
@@ -466,49 +479,39 @@ function TOOL:DrawHUD() --CLIENT ONLY
 				v.icon = "gui/e.png"
 			end
 		end
-
 		if (not v.icon2) then
 			if (not v.name:StartWith("use") and v.name:EndsWith("use")) then
 				v.icon2 = "gui/e.png"
 			end
-
 			--added shift to modifer keys
 			if (not v.name:StartWith("shift") and v.name:EndsWith("shift")) then
 				v.icon2 = "materials/shift.png"
 			end
-
 			--added ctrl to modifer keys
 			if (not v.name:StartWith("ctrl") and v.name:EndsWith("ctrl")) then
 				v.icon2 = "materials/ctrl.png"
 			end
 		end
-
 		self.Icons = self.Icons or {}
-
 		if (v.icon and not self.Icons[v.icon]) then
 			self.Icons[v.icon] = Material(v.icon)
 		end
-
 		if (v.icon2 and not self.Icons[v.icon2]) then
 			self.Icons[v.icon2] = Material(v.icon2)
 		end
-
 		if (v.icon and self.Icons[v.icon] and not self.Icons[v.icon]:IsError()) then
 			surface.SetDrawColor(255, 255, 255, 255)
 			surface.SetMaterial(self.Icons[v.icon])
 			surface.DrawTexturedRect(x, y + h2, 16, 16) --Icon1 draw (must be 16x16 png)
 		end
-
 		if (v.icon2 and self.Icons[v.icon2] and not self.Icons[v.icon2]:IsError()) then
 			surface.SetDrawColor(255, 255, 255, 255)
 			surface.SetMaterial(self.Icons[v.icon2])
 			surface.DrawTexturedRect(x - (11 + (self.Icons[v.icon2]:Width())), y + h2, self.Icons[v.icon2]:Width(), self.Icons[v.icon2]:Height()) --Icon2 draw (must be #x16 png)
 			draw.SimpleText("+", "default", x - 8, y + h2 + 2, color_white)
 		end
-
 		h2 = h2 + h
 	end
-
 	self.InfoBoxHeight = h2 + 8
 end
 
@@ -527,7 +530,21 @@ function TOOL:DrawToolScreen(width, height)
 		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.z,2), "DermaLarge", width / 1.35, height / 1.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 	end	
 end
-//math.Round(self.CurrentBox.MinBound.y,1)..":"..math.Round(self.CurrentBox.MinBound.z,1)
+--local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+function SWEP:PostDrawViewModel(viewmodel, weapon, ply)
+	local toolInst = weapon:GetTable().Tool.gzt_zonetool
+	if IsValid(toolInst.SelectedCorner) then
+		cam.Start3D()
+			render.SetMaterial(Material("cable/physbeam"))
+			local plane = self:EyePos()
+			local vec, ang = viewmodel:GetBonePosition(42)
+			// perpendicular to the aim vector + bone vector
+			local FOVScale = (ply:GetFOV()-75)/10
+			render.DrawBeam(vec + ply:GetAimVector():Angle():Right()*FOVScale, toolInst.SelectedCorner:GetPos(), 1, 1,1, Color(0,230,100))
+		cam.End3D()
+	end
+end
+
 if CLIENT then
     TOOL.Information={
 		{name=TOOL.Modes.Loading, op=0},
