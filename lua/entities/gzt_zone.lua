@@ -57,10 +57,11 @@ function ENT:Setup(min,max)
 		local z = bit.band(i, 4) == 0 and maxBound.z or minBound.z
 		self.Corners[i + 1] = Vector(x, y, z)
 		self.CornerEnts[i + 1] = ents.Create("gzt_zonecorner")
-		self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
 		self.CornerEnts[i+1]:Setup(smallest_side)
 		self.CornerEnts[i+1]:SetOwner(self:GetOwner())
 		self.CornerEnts[i+1]:Spawn()
+		self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
+
 	end
 end
 
@@ -80,6 +81,10 @@ function ENT:Initialize()
 	self:SetMoveType(MOVETYPE_NONE)
     self:SetCollisionGroup(COLLISION_GROUP_WORLD)
     self:EnableCustomCollisions(true)
+end
+
+function ENT:TestCollision(startpos, delta, isbox, extents, mask)
+	return
 end
 
 function ENT:Draw()

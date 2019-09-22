@@ -18,9 +18,11 @@ function ENT:Initialize()
     end
 end
 
-function ENT:PhysicsCollide(colData, collider)
-    if(colData.HitEntity)
-end
+-- function ENT:PhysicsCollide(colData, collider)
+--     if(colData.HitEntity) then
+        
+--     end
+-- end
 
 function ENT:SetupDataTables()
     self:NetworkVar("Int", 0, "Size")
@@ -39,6 +41,6 @@ end
 function ENT:Draw()
     local cb1 ,cb2 = self:GetCollisionBounds()
     cam.Start3D()
-        render.DrawWireframeBox(self:GetPos(), self:GetAngles(), cb1, cb2, Color(255,255,255,255))
+        render.DrawWireframeBox(self:GetPos(), self:GetAngles(), cb1, cb2, self:GetColor())
     cam.End3D()
 end
