@@ -13,16 +13,7 @@ function ENT:Initialize()
     self:SetCollisionGroup(COLLISION_GROUP_WORLD)
     self:EnableCustomCollisions(true)
     self:DrawShadow(false)
-    if(SERVER) then
-        //self:Wake()
-    end
 end
-
--- function ENT:PhysicsCollide(colData, collider)
---     if(colData.HitEntity) then
-        
---     end
--- end
 
 function ENT:SetupDataTables()
     self:NetworkVar("Int", 0, "Size")

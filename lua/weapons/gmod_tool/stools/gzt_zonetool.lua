@@ -38,11 +38,15 @@ TOOL.CurrentBox = {
 	MaxBound=nil,
 	Ent=nil
 }
+TOOL.SelectedCorner = nil
+TOOL.GrabMagnitude = -1
 
 if(SERVER) then
 	PausedPlayers={}
 	util.AddNetworkString("playerPaused")
 	util.AddNetworkString("playerUnpaused")
+	util.AddNetworkString("setselectedcorner")
+	util.AddNetworkString("SetGrabMag")
 	net.Receive("playerPaused", function(len, ply)
 		if (IsValid(ply) and ply:IsPlayer()) then
 			PausedPlayers[ply:AccountID()] = true
@@ -60,6 +64,22 @@ if(SERVER) then
 			toolInst.KeyExecutionQueue = {}
 		end
 	end)
+
+	-- net.Receive("setselectedcorner", function(len, ply)
+	-- 	local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+	-- 	toolInst.SelectedCorner = net.ReadEntity()
+	-- 	if toolInst.SelectedCorner.ClassName=="worldspawn" then
+	-- 		toolInst.SelectedCorner = nil
+	-- 		return
+	-- 	end
+	-- 	--print(toolInst.SelectedCorner)
+	-- 	--print("recieved ent w/ grab magnitude", toolInst.SelectedCorner:GetGrabMagnitude())
+	-- end)
+
+	net.Receive("SetGrabMag", function(len, ply)
+		local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+		toolInst.GrabMagnitude = net.ReadFloat() 
+	end)
 end
 
 for k,v in pairs(TOOL.Modes) do
@@ -67,11 +87,6 @@ for k,v in pairs(TOOL.Modes) do
 		if KeyCombo.processed then return end
 		self:UpdateToolMode()
 	end
-end
-
-function SWEP:SetupDataTables()
-	self:NetworkVar("Entity", 0, "SelectedCorner")
-	self:NetworkVar("Float", 0, "GrabMagnitude")
 end
 
 TOOL["KF"..TOOL.Modes.Create..MOUSE_LEFT] = function(self, KeyCombo)
@@ -117,30 +132,33 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_E] = function(self, KeyCombo)
 	PrintTable(self.CurrentBox)
 end
 
-TOOL.SelectedCorner = nil
-TOOL.GrabMagnitude = -1
-
 TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
-	local selectedcorner = self:GetOwner():GetActiveWeapon():GetSelectedCorner()
 	if !KeyCombo.processed && !KeyCombo.released then
-		if(!IsValid(selectedcorner)) then
+		if(!IsValid(self.SelectedCorner)) then
 			tr = self:GetOwner():GetEyeTrace()
 			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner") then
-				self:GetOwner():GetActiveWeapon():SetSelectedCorner(tr.Entity)
-				self:GetOwner():GetActiveWeapon():GetSelectedCorner():SetColor(Color(0,0,255,255))
-				print("setting initial grab mag")
-				self:GetOwner():GetActiveWeapon():SetGrabMagnitude(self:GetOwner():GetActiveWeapon():GetSelectedCorner():GetPos():Distance(self:GetOwner():EyePos()))
+				self.SelectedCorner = tr.Entity
+				self.SelectedCorner:SetColor(Color(0,0,255,255))
+				self.GrabMagnitude=self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
+				-- net.Start("setselectedcorner")
+				-- print("sending", self.SelectedCorner)
+				-- net.WriteEntity(self.SelectedCorner)
+				-- net.SendToServer()
 			end
 		end
 	elseif KeyCombo.processed && !KeyCombo.released then
-		if IsValid(selectedcorner) then
-			print("setting pos")
-			selectedcorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self:GetOwner():GetActiveWeapon():GetGrabMagnitude())
+		if IsValid(self.SelectedCorner) then
+			self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagnitude)
 		end
 	elseif KeyCombo.processed && KeyCombo.released then
-		if IsValid(selectedcorner) then
-			selectedcorner:SetColor(Color(255,255,255,255))
-			self:GetOwner():GetActiveWeapon():SetSelectedCorner(nil)
+		if IsValid(self.SelectedCorner) then
+			self.SelectedCorner:SetColor(Color(255,255,255,255))
+			self.SelectedCorner = nil 
+			-- if CLIENT then
+			-- 	net.Start("setselectedcorner")
+			-- 	net.WriteEntity(self.SelectedCorner)
+			-- 	net.SendToServer()
+			-- end
 		end
 	end
 end
@@ -196,18 +214,23 @@ end
 
 function PlayerBindPress(ply, bind, pressed)
 	if(ply:GetActiveWeapon():IsValid() && ply:GetActiveWeapon():GetClass()=="gmod_tool" && ply:GetActiveWeapon():GetTable().current_mode=="gzt_zonetool") then
-		local selectedcorner = ply:GetActiveWeapon():GetSelectedCorner()
 		local self = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-		if IsValid(selectedcorner) then
-			local tempGM = ply:GetActiveWeapon():GetGrabMagnitude()
-			if(bind == "invprev") then				
-				print("B4",ply:GetActiveWeapon():GetGrabMagnitude())
-				ply:GetActiveWeapon():SetGrabMagnitude(math.max(tempGM+5, 10))
-				print("A4",ply:GetActiveWeapon():GetGrabMagnitude())
+		if IsValid(self.SelectedCorner) then
+			local tempGM = self.GrabMagnitude
+			if(bind == "invprev") then
+				--TODO:scale amount moved on scroll by how far away the box is
+				tempGM = math.max(tempGM+5, 10)
+				net.Start("SetGrabMag")
+				net.WriteFloat(tempGM)
+				net.SendToServer()
+				self.GrabMagnitude=tempGM
 				return true
 			elseif bind == "invnext" then
-				print("inv next setting grab mag..")
-				ply:GetActiveWeapon():SetGrabMagnitude(math.max(tempGM-5, 10))
+				tempGM = math.max(tempGM-5, 10)
+				net.Start("SetGrabMag")
+				net.WriteFloat(tempGM)
+				net.SendToServer()
+				self.GrabMagnitude=tempGM				
 				return true
 			end
 		end
@@ -565,14 +588,13 @@ function TOOL:DrawToolScreen(width, height)
 		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.x,2), "DermaLarge", width / 1.35, height / 2.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.y,2), "DermaLarge", width / 1.35, height / 1.9, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.z,2), "DermaLarge", width / 1.35, height / 1.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-	end	
-	draw.SimpleText(self:GetOwner():GetActiveWeapon():GetGrabMagnitude(), "DermaLarge", width/2, height/1.1, Color( 200, 200, 200, 200 ),TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+	end
+	draw.SimpleText(self.GrabMagnitude, "DermaLarge", width/2, height/1.1, Color( 200, 200, 200, 200 ),TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 end
 --local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 function SWEP:PostDrawViewModel(viewmodel, weapon, ply)
 	local toolInst = weapon:GetTable().Tool.gzt_zonetool
-	local selectedcorner = ply:GetActiveWeapon():GetSelectedCorner()
-	if IsValid(selectedcorner) then
+	if IsValid(toolInst.SelectedCorner) then
 		cam.Start3D()
 			render.SetMaterial(Material("cable/physbeam"))
 			local plane = ply:EyePos()
@@ -580,7 +602,7 @@ function SWEP:PostDrawViewModel(viewmodel, weapon, ply)
 			// perpendicular to the aim vector + bone vector
 			//TODO: make beam look nicer
 			local FOVScale = (ply:GetFOV()-75)/10
-			render.DrawBeam(vec + ply:GetAimVector():Angle():Right()*FOVScale, selectedcorner:GetPos(), 1, 1,1, Color(0,230,100))
+			render.DrawBeam(vec + ply:GetAimVector():Angle():Right()*FOVScale, toolInst.SelectedCorner:GetPos(), 1, 1,1, Color(0,230,100))
 		cam.End3D()
 	end
 end
