@@ -45,7 +45,6 @@ if(SERVER) then
 	PausedPlayers={}
 	util.AddNetworkString("playerPaused")
 	util.AddNetworkString("playerUnpaused")
-	util.AddNetworkString("setselectedcorner")
 	util.AddNetworkString("SetGrabMag")
 	net.Receive("playerPaused", function(len, ply)
 		if (IsValid(ply) and ply:IsPlayer()) then
@@ -64,17 +63,6 @@ if(SERVER) then
 			toolInst.KeyExecutionQueue = {}
 		end
 	end)
-
-	-- net.Receive("setselectedcorner", function(len, ply)
-	-- 	local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
-	-- 	toolInst.SelectedCorner = net.ReadEntity()
-	-- 	if toolInst.SelectedCorner.ClassName=="worldspawn" then
-	-- 		toolInst.SelectedCorner = nil
-	-- 		return
-	-- 	end
-	-- 	--print(toolInst.SelectedCorner)
-	-- 	--print("recieved ent w/ grab magnitude", toolInst.SelectedCorner:GetGrabMagnitude())
-	-- end)
 
 	net.Receive("SetGrabMag", function(len, ply)
 		local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
@@ -132,6 +120,7 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_E] = function(self, KeyCombo)
 	PrintTable(self.CurrentBox)
 end
 
+TOOL.SmallerDifVector = Vector()
 TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released then
 		if(!IsValid(self.SelectedCorner)) then
@@ -140,25 +129,28 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 				self.SelectedCorner = tr.Entity
 				self.SelectedCorner:SetColor(Color(0,0,255,255))
 				self.GrabMagnitude=self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
-				-- net.Start("setselectedcorner")
-				-- print("sending", self.SelectedCorner)
-				-- net.WriteEntity(self.SelectedCorner)
-				-- net.SendToServer()
 			end
 		end
 	elseif KeyCombo.processed && !KeyCombo.released then
 		if IsValid(self.SelectedCorner) then
 			self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagnitude)
+			local maxbdif = self.CurrentBox.MaxBound - self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagnitude
+			local minbdif = self.CurrentBox.MinBound - self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagnitude
+			if(minbdif:LengthSqr()<maxbdif:LengthSqr()) then
+				self.SmallerDifVector = minbdif
+			else
+				self.SmallerDifVector = maxbdif
+			end
+			self.SelectedCorner:GetOwner():Resize(self.SelectedCorner)
+			
 		end
 	elseif KeyCombo.processed && KeyCombo.released then
 		if IsValid(self.SelectedCorner) then
 			self.SelectedCorner:SetColor(Color(255,255,255,255))
+			if(SERVER) then
+				self.SelectedCorner:GetOwner():BuildCorners()
+			end
 			self.SelectedCorner = nil 
-			-- if CLIENT then
-			-- 	net.Start("setselectedcorner")
-			-- 	net.WriteEntity(self.SelectedCorner)
-			-- 	net.SendToServer()
-			-- end
 		end
 	end
 end
@@ -603,6 +595,7 @@ function SWEP:PostDrawViewModel(viewmodel, weapon, ply)
 			//TODO: make beam look nicer
 			local FOVScale = (ply:GetFOV()-75)/10
 			render.DrawBeam(vec + ply:GetAimVector():Angle():Right()*FOVScale, toolInst.SelectedCorner:GetPos(), 1, 1,1, Color(0,230,100))
+			render.DrawLine(toolInst.SelectedCorner:GetOwner():GetPos(),toolInst.SelectedCorner:GetOwner():GetPos()+toolInst.SmallerDifVector, Color(255,255,0,255))
 		cam.End3D()
 	end
 end

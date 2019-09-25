@@ -31,6 +31,36 @@ function ENT:SetupDataTables()
 	self:NetworkVar("Vector",1,"MaxBound")
 	self:NetworkVar("String",0,"Type")
 end
+--pos, smllestsize, physbox, order, update other corners
+function ENT:Resize(changedcorner)
+	if CLIENT then return end
+	local opposite = self.CornerEnts[(7-changedcorner:GetIndex())+1]
+	local vec1 = opposite:GetPos()
+	local vec2 = changedcorner:GetPos()
+	OrderVectors(vec1,vec2)
+	self:SetPos(Lerp(0.5,vec1,vec2))
+	self:SetMinBound(vec1)
+	self:SetMaxBound(vec2)
+end
+
+function ENT:BuildCorners()
+	local vec1 = self:GetMinBound()
+	local vec2 = self:GetMaxBound()
+	self:PhysicsInitBox(vec1-self:GetPos(),vec2-self:GetPos())
+	local diff_vector = self:GetMaxBound() - self:GetMinBound()
+	local smallest_side = math.min(diff_vector.x, diff_vector.y, diff_vector.z)
+	for i = 0, 7 do
+		self.CornerEnts[i+1]:Setup(smallest_side, i)
+		local x = bit.band(i, 1) == 0 and vec1.x or vec2.x
+		local y = bit.band(i, 2) == 0 and vec1.y or vec2.y
+		local z = bit.band(i, 4) == 0 and vec1.z or vec2.z
+		self.Corners[i + 1] = Vector(x, y, z)
+		self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
+		if(i==0 or i==7) then
+			self.CornerEnts[i+1]:SetColor(Color(255,0,0))
+		end
+	end
+end
 
 function ENT:Setup(min,max)
 	if(self.CornerEnts && #self.CornerEnts != 0) then
@@ -56,12 +86,15 @@ function ENT:Setup(min,max)
 		local y = bit.band(i, 2) == 0 and maxBound.y or minBound.y
 		local z = bit.band(i, 4) == 0 and maxBound.z or minBound.z
 		self.Corners[i + 1] = Vector(x, y, z)
+
 		self.CornerEnts[i + 1] = ents.Create("gzt_zonecorner")
-		self.CornerEnts[i+1]:Setup(smallest_side)
-		self.CornerEnts[i+1]:SetOwner(self:GetOwner())
+		self.CornerEnts[i+1]:Setup(smallest_side, i)
+		self.CornerEnts[i+1]:SetOwner(self)
 		self.CornerEnts[i+1]:Spawn()
 		self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
-
+		if(i==0 or i==7) then
+			self.CornerEnts[i+1]:SetColor(Color(255,0,0))
+		end
 	end
 end
 
