@@ -1,5 +1,7 @@
 AddCSLuaFile()
 
+include("modules/cl_gui.lua")
+
 TOOL.Category = "Zone Tool"
 TOOL.Name = "#tool.gzt_zonetool.name"
 TOOL.Command = "gmod_toolmode gzt_zonetool"
@@ -14,7 +16,7 @@ TOOL.Modes = {
 	Loading = "Loading",
 	Create = "Create",
 	Edit = "Edit",
-	TESTMODE1 = "Test Mode 1",
+	GUI = "GUI",
 	TESTMODE2 = "Test Mode 2",
 	TESTMODE3 = "Test Mode 3"
 }
@@ -22,7 +24,7 @@ TOOL.ModeList = {
 	TOOL.Modes.Loading,
 	TOOL.Modes.Create,
 	TOOL.Modes.Edit,
-	TOOL.Modes.TESTMODE1,
+	TOOL.Modes.GUI,
 	TOOL.Modes.TESTMODE2,
 	TOOL.Modes.TESTMODE3
 }
@@ -120,7 +122,6 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_E] = function(self, KeyCombo)
 	PrintTable(self.CurrentBox)
 end
 
-TOOL.SmallerDifVector = Vector()
 TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released then
 		if(!IsValid(self.SelectedCorner)) then
@@ -134,15 +135,7 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 	elseif KeyCombo.processed && !KeyCombo.released then
 		if IsValid(self.SelectedCorner) then
 			self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagnitude)
-			local maxbdif = self.CurrentBox.MaxBound - self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagnitude
-			local minbdif = self.CurrentBox.MinBound - self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagnitude
-			if(minbdif:LengthSqr()<maxbdif:LengthSqr()) then
-				self.SmallerDifVector = minbdif
-			else
-				self.SmallerDifVector = maxbdif
-			end
 			self.SelectedCorner:GetOwner():Resize(self.SelectedCorner)
-			
 		end
 	elseif KeyCombo.processed && KeyCombo.released then
 		if IsValid(self.SelectedCorner) then
@@ -153,6 +146,16 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 			self.SelectedCorner = nil 
 		end
 	end
+end
+
+TOOL["KF"..TOOL.Modes.GUI..KEY_H] = function(self, KeyCombo)
+	if !KeyCombo.processed && !KeyCombo.released && CLIENT then
+		if(!GZT_PANEL) then
+			GZT_PANEL = vgui.Create("gzt_gui")
+		end
+		GZT_PANEL:SetVisible(!GZT_PANEL:IsVisible())
+		GZT_PANEL:RequestFocus()
+	end	
 end
 
 
@@ -342,6 +345,10 @@ function TOOL:ProcessInput()
 				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] || !self.KeyTable[self.KeyExecutionQueue[i].key3.key] then
 					self.KeyExecutionQueue[i].released=true
 				end
+			elseif self.KeyExecutionQueue[i].comboType == "QUADRUPLE" then
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] || !self.KeyTable[self.KeyExecutionQueue[i].key3.key] || !self.KeyTable[self.KeyExecutionQueue[i].key4.key] then
+					self.KeyExecutionQueue[i].released=true
+				end
 			end
 		end
 		--run the fuction for the key combo if it exists
@@ -406,6 +413,11 @@ function TOOL:ProcessInput()
 				end
 			elseif self.KeyExecutionQueue[i].comboType == "TRIPLE" then
 				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] || !self.KeyTable[self.KeyExecutionQueue[i].key3.key] then
+					self.KeyExecutionQueue[i]=nil
+					continue 
+				end
+			elseif self.KeyExecutionQueue[i].comboType == "QUADRUPLE" then
+				if !self.KeyTable[self.KeyExecutionQueue[i].key1.key] || !self.KeyTable[self.KeyExecutionQueue[i].key2.key] || !self.KeyTable[self.KeyExecutionQueue[i].key3.key] || !self.KeyTable[self.KeyExecutionQueue[i].key4.key] then
 					self.KeyExecutionQueue[i]=nil
 					continue 
 				end
@@ -581,7 +593,9 @@ function TOOL:DrawToolScreen(width, height)
 		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.y,2), "DermaLarge", width / 1.35, height / 1.9, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.z,2), "DermaLarge", width / 1.35, height / 1.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 	end
-	draw.SimpleText(self.GrabMagnitude, "DermaLarge", width/2, height/1.1, Color( 200, 200, 200, 200 ),TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+	if self:GetToolMode()=="Create" then
+		draw.SimpleText(self.GrabMagnitude, "DermaLarge", width/2, height/1.1, Color( 200, 200, 200, 200 ),TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+	end
 end
 --local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 function SWEP:PostDrawViewModel(viewmodel, weapon, ply)
