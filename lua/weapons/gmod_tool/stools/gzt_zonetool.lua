@@ -153,8 +153,8 @@ TOOL["KF"..TOOL.Modes.GUI..KEY_H] = function(self, KeyCombo)
 		if(!GZT_PANEL) then
 			GZT_PANEL = vgui.Create("gzt_gui")
 		end
-		GZT_PANEL:SetVisible(!GZT_PANEL:IsVisible())
-		GZT_PANEL:RequestFocus()
+		GZT_PANEL:SetVisible(true)
+		GZT_PANEL:SetToolRef(self)
 	end	
 end
 
