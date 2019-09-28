@@ -1,7 +1,5 @@
 AddCSLuaFile()
 
-include("modules/cl_gui.lua")
-
 TOOL.Category = "Zone Tool"
 TOOL.Name = "#tool.gzt_zonetool.name"
 TOOL.Command = "gmod_toolmode gzt_zonetool"
@@ -17,7 +15,7 @@ TOOL.Modes = {
 	Create = "Create",
 	Edit = "Edit",
 	GUI = "GUI",
-	TESTMODE2 = "Test Mode 2",
+	Program = "Program Mode",
 	TESTMODE3 = "Test Mode 3"
 }
 TOOL.ModeList = {
@@ -25,7 +23,7 @@ TOOL.ModeList = {
 	TOOL.Modes.Create,
 	TOOL.Modes.Edit,
 	TOOL.Modes.GUI,
-	TOOL.Modes.TESTMODE2,
+	TOOL.Modes.Program,
 	TOOL.Modes.TESTMODE3
 }
 TOOL.KeyTable = {}
@@ -249,6 +247,7 @@ function TOOL:DeleteBox()
 	end
 end
 
+
 function TOOL:PlayerButtonDown(key, ply)
 	--In this function self refers to the player holding the tool, not the tool itself
 	if CLIENT && !IsFirstTimePredicted() then return end 
@@ -427,7 +426,6 @@ function TOOL:ProcessInput()
 			self.KeyExecutionQueue[i]=nil
 		end
 	end
-
 end
 
 function TOOL:Holster()
@@ -446,7 +444,7 @@ function TOOL:Reload() // otherwise when u hit r it sets operation to 0
 	return --this is bullshit and i hate it
 end
 
-function TOOL:DrawHUD() --CLIENT ONLY)
+function TOOL:DrawHUD() --CLIENT ONLY
 	if self.PreviousDrawHelpState == -1 then
 		self.PreviousDrawHelpState = GetConVar("gmod_drawhelp"):GetInt()
 		GetConVar("gmod_drawhelp"):SetInt(0)
@@ -649,3 +647,7 @@ if CLIENT then
 	language.Add("tool.gzt_zonetool."..TOOL.Modes.Create, TOOL.Modes.Create)
 	language.Add("tool.gzt_zonetool."..TOOL.Modes.Edit, TOOL.Modes.Edit)
 end
+
+GZT_ZONETOOL = TOOL
+
+include("modules/cl_gui.lua")

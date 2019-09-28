@@ -29,7 +29,7 @@ ENT.CornerEnts = {}
 function ENT:SetupDataTables()
 	self:NetworkVar("Vector",0,"MinBound")
 	self:NetworkVar("Vector",1,"MaxBound")
-	self:NetworkVar("String",0,"Type")
+	self:NetworkVar("String",0,"Catagory")
 end
 --pos, smllestsize, physbox, order, update other corners
 function ENT:Resize(changedcorner)
