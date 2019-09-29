@@ -4,11 +4,26 @@ if SERVER then return end
 
 local PANEL = {}
 
+PANEL.FirstSelected = false
+PANEL.CurrentMode = nil
+
+COLORS = {
+    base = Color(75,75,75,255)
+}
+
 GZT_PANEL = nil
 
 function PANEL:SetToolRef(tool)
     self.tool = tool
+end
+
+function PANEL:PopulateUI()
     self:PopulateModeList()
+    self.basePanel.baseModePanel.createPanelBase:OnSelect()
+    if(!self.FirstSelected) then
+        self.FirstSelected = true
+        self:SelectMode(self.tool:GetToolMode())
+    end
 end
 
 local GZT_ZONEDEFS = {}
@@ -49,28 +64,22 @@ end
 
 
 function PANEL:Init()
-
     self:SetSize(ScrW()/2, ScrH()/1.5)
     self:AddTopbar()
     self:AddBasePanel()
     self:AddSidebar()
+    self:AddBaseModePanel()
     self:AddProgramMode()
     self:AddCreateMode()
     self:MakePopup()
     self:SetPos(ScrW()/2 - self:GetWide()/2, ScrH()/2 - self:GetTall()/2)
 end
 
-function PANEL:AddCreateMode()
-    self.create_panel = vgui.Create("DPanel", self.basePanel, GZT_ZONETOOL.Modes.Create)
-    self.create_panel:Dock(FILL)
-    self.create_panel:SetText(" ayup")
-    self.create_panel:Hide()
-end
-
 function PANEL:AddTopbar()
     --Top Bar
     self.topbar = vgui.Create("DPanel", self)
     self.topbar:Dock(TOP)
+    self.topbar:SetTall(self:GetTall()/40)
     self.topbar.Paint = function(self, width, height)
         surface.SetDrawColor(0, 0, 0, 255)
         draw.RoundedBoxEx(5, 0, 0, width, height, Color(100,100,100,255), true, true, false, false)
@@ -98,58 +107,170 @@ end
 function PANEL:AddBasePanel()
     --Base Panel
     self.basePanel = vgui.Create("DPanel", self)
+    self.basePanel:SetWide(self:GetWide())
+    self.basePanel:SetTall(self:GetTall()*(39/40))
     self.basePanel:Dock(FILL)
-    self.basePanel:SetBackgroundColor(Color(75,75,75,255))
+    self.basePanel:SetBackgroundColor(COLORS.base)
+end
+
+function PANEL:AddBaseModePanel()
+    self.basePanel.baseModePanel = vgui.Create("DPanel", self.basePanel)
+    self.basePanel.baseModePanel:Dock(FILL)
+    self.basePanel.baseModePanel:SetWide(self.basePanel:GetWide()*(5/6))
+    self.basePanel.baseModePanel:SetTall(self.basePanel:GetTall())
+    self.basePanel.baseModePanel:SetBackgroundColor(Color(100,75,75,255))
+end
+
+function PANEL:AddCreateMode()
+    self.basePanel.baseModePanel.createPanelBase = vgui.Create("DPanel", self.basePanel.baseModePanel, GZT_ZONETOOL.Modes.Create)
+    self.basePanel.baseModePanel.createPanelBase:Dock(FILL)
+    -- self.basePanel.createPanelBase:SetWide(number )
+    self.basePanel.baseModePanel.createPanelBase:DockPadding(10, 20, 10, 20)
+
+    self.basePanel.baseModePanel.createPanelBase.gamemodeSelect = vgui.Create("DComboBox", self.basePanel.baseModePanel.createPanelBase)
+    self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:DockMargin(0,0,500,0)
+    self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:Dock(TOP)
+
+    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel = vgui.Create("DPanel", self.basePanel.baseModePanel.createPanelBase)
+    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel:Dock(FILL)
+    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel:SetBackgroundColor(COLORS.base)
+    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel.label = vgui.Create("DLabel", self.basePanel.baseModePanel.createPanelBase.currentBoxPanel)
+    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel.label:Dock(FILL)
+
+    --self.basePanel.createPanelBase.gamemodeSelect:SetWide(self.basePanel.createPanelBase:GetWide()/4)
+    self.basePanel.baseModePanel.createPanelBase.OnSelect = function(panel)
+        self.basePanel.baseModePanel.createPanelBase.currentBoxPanel.label:SetText(tostring(self.tool.CurrentBox.MinBound).."    "..tostring(self.tool.CurrentBox.MaxBound))
+    end
 end
 
 function PANEL:AddProgramMode()
-    print(GZT_ZONETOOL.Modes.Program)
-    self.program_mode = vgui.Create("DPanel", self.basePanel,GZT_ZONETOOL.Modes.Program)
-    self.tab_panel = vgui.Create("DPropertySheet", self.program_mode)
-    self.program_mode:Dock(FILL)
-    self.tab_panel:Dock(FILL)
-    self.program_mode:SetBackgroundColor(Color(75,75,75,255))
-    self.catagory_tab = vgui.Create("DPanel", self.tab_panel)
-    self.file_tab = vgui.Create("DPanel", self.tab_panel)
-    self.code_tab = vgui.Create("DPanel", self.tab_panel)
-    self.tab_panel:AddSheet("Zone Catagories", self.catagory_tab)
-    self.tab_panel:AddSheet("File Viewer", self.file_tab)
-    self.tab_panel:AddSheet("Code Editor", self.code_tab)
-    self.catagory_tab.gamemodeSelect = vgui.Create("DComboBox", self.catagory_tab)
-    for k,v in pairs(engine.GetGamemodes()) do
-        for k2, v2 in pairs(GZT_ZONEDEFS) do
-            if string.find(v2, v.name) then
-                self.catagory_tab.gamemodeSelect:AddChoice(v.name) 
-            end
-        end
+    --Program mode base panel
+    self.basePanel.baseModePanel.programBasePanel = vgui.Create("DPanel", self.basePanel.baseModePanel, GZT_ZONETOOL.Modes.Program)
+    self.basePanel.baseModePanel.programBasePanel:SetWide(self.basePanel.baseModePanel:GetWide())
+    self.basePanel.baseModePanel.programBasePanel:Dock(FILL)
+    
+    --tabs container
+    self.basePanel.baseModePanel.programBasePanel.tabs = vgui.Create("DPanel", self.basePanel.baseModePanel.programBasePanel)
+    self.basePanel.baseModePanel.programBasePanel.tabs:SetWide(self.basePanel.baseModePanel.programBasePanel:GetWide())
+    self.basePanel.baseModePanel.programBasePanel.tabs:SetTall(24)
+    self.basePanel.baseModePanel.programBasePanel.tabs:Dock(TOP)
+    self.basePanel.baseModePanel.programBasePanel.tabs:SetBackgroundColor(COLORS.base)
+   
+    --Catagory tab
+    self.basePanel.baseModePanel.programBasePanel.tabs.catTabButton =  vgui.Create("DButton", self.basePanel.baseModePanel.programBasePanel.tabs)
+    self.basePanel.baseModePanel.programBasePanel.tabs.catTabButton:SetWide(self.basePanel.baseModePanel.programBasePanel.tabs:GetWide()/10)
+    self.basePanel.baseModePanel.programBasePanel.tabs.catTabButton:Dock(LEFT)
+    self.basePanel.baseModePanel.programBasePanel.tabs.catTabButton:SetTextColor(Color(0,0,0,255))
+    self.basePanel.baseModePanel.programBasePanel.tabs.catTabButton:SetContentAlignment(5)
+    self.basePanel.baseModePanel.programBasePanel.tabs.catTabButton:SetText("Catagory View")
+    self.basePanel.baseModePanel.programBasePanel.tabs.catTabButton.DoClick = function(button)
+        self:showProgramCatagoryView()
     end
-    self.catagory_tab.gamemodeSelect.OnSelect = function(self, index, value, data)
-        print(index, value)
-        -- local files, dirs = file.Find("gzt_zonedef.lua", "LUA")
-        -- if(files) then
-        --     PrintTable(files)
-        --     PrintTable(dirs)
-        -- end
+self.basePanel.baseModePanel.programBasePanel.tabs.catTabButton.Paint = function(button,w,h)
+        if self.basePanel.baseModePanel.programBasePanel.catTabPanel.isSelected then
+            surface.SetDrawColor(90,90,90,255)
+        else
+            surface.SetDrawColor(130,130,130,255)
+        end
+        surface.DrawRect(0, 0, w, h)
+    end
+    
+    --File tab 
+    self.basePanel.baseModePanel.programBasePanel.tabs.fileTabButton =  vgui.Create("DButton", self.basePanel.baseModePanel.programBasePanel.tabs)
+    self.basePanel.baseModePanel.programBasePanel.tabs.fileTabButton:SetWide(self.basePanel.baseModePanel.programBasePanel.tabs:GetWide()/10)
+    self.basePanel.baseModePanel.programBasePanel.tabs.fileTabButton:Dock(LEFT)
+    self.basePanel.baseModePanel.programBasePanel.tabs.fileTabButton:SetTextColor(Color(0,0,0,255))
+    self.basePanel.baseModePanel.programBasePanel.tabs.fileTabButton:SetContentAlignment(5)
+    self.basePanel.baseModePanel.programBasePanel.tabs.fileTabButton:SetText("File View")
+    self.basePanel.baseModePanel.programBasePanel.tabs.fileTabButton.DoClick = function(button)
+        self:showProgramFileView()
+    end
+    self.basePanel.baseModePanel.programBasePanel.tabs.fileTabButton.Paint = function(button,w,h)
+        if self.basePanel.baseModePanel.programBasePanel.fileTabPanel.isSelected then
+            surface.SetDrawColor(90,90,90,255)
+        else
+            surface.SetDrawColor(130,130,130,255)
+        end
+        surface.DrawRect(0, 0, w, h)
     end
 
-    --TODO: move code editor into new file because it going to be HUGE 
-    --code tab
-    self.editor = vgui.Create("DTextEntry", self.code_tab)
-    self.editor:Center()
-    self.editor:Dock(FILL)
-    self.editor:SetText("placeholder")
-    self.editor:Dock(FILL)
-    self.linenumbers = vgui.Create("DPanel", self.code_tab)
-    self.linenumbers:Dock(LEFT)
+    --Code editor tab
+    self.basePanel.baseModePanel.programBasePanel.tabs.editorTabButton =  vgui.Create("DButton", self.basePanel.baseModePanel.programBasePanel.tabs)
+    self.basePanel.baseModePanel.programBasePanel.tabs.editorTabButton:SetWide(self.basePanel.baseModePanel.programBasePanel.tabs:GetWide()/10)
+    self.basePanel.baseModePanel.programBasePanel.tabs.editorTabButton:Dock(LEFT)
+    self.basePanel.baseModePanel.programBasePanel.tabs.editorTabButton:SetTextColor(Color(0,0,0,255))
+    self.basePanel.baseModePanel.programBasePanel.tabs.editorTabButton:SetContentAlignment(5)
+    self.basePanel.baseModePanel.programBasePanel.tabs.editorTabButton:SetText("Code Editor")
+    self.basePanel.baseModePanel.programBasePanel.tabs.editorTabButton.DoClick = function(button)
+        self:showProgramCodeView()
+    end
+    self.basePanel.baseModePanel.programBasePanel.tabs.editorTabButton.Paint = function(button,w,h)
+        if self.basePanel.baseModePanel.programBasePanel.editorTabPanel.isSelected then
+            surface.SetDrawColor(90,90,90,255)
+        else
+            surface.SetDrawColor(130,130,130,255)
+        end
+        surface.DrawRect(0, 0, w, h)
+    end
+
+    --Catagory tab Panel
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel = vgui.Create("DPanel", self.basePanel.baseModePanel.programBasePanel)
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel:SetWide(self.basePanel.baseModePanel.programBasePanel:GetWide())
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel:SetTall(self.basePanel.baseModePanel.programBasePanel:GetTall())
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel:Dock(FILL)
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel:SetBackgroundColor(Color(100,75,75,255))
+
+    --File tab Panel
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel = vgui.Create("DPanel", self.basePanel.baseModePanel.programBasePanel)
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel:SetWide(self.basePanel.baseModePanel.programBasePanel:GetWide())
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel:SetTall(self.basePanel.baseModePanel.programBasePanel:GetTall())
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel:Dock(FILL)
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel:Hide()
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel:SetBackgroundColor(Color(75,100,75,255))
+
+    --Code editor Panel
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel = vgui.Create("DPanel", self.basePanel.baseModePanel.programBasePanel)
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel:SetWide(self.basePanel.baseModePanel.programBasePanel:GetWide())
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel:SetTall(self.basePanel.baseModePanel.programBasePanel:GetTall())
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel:Dock(FILL)
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel:Hide()
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel:SetBackgroundColor(Color(75,75,100,255))
+end
+
+function PANEL:showProgramCatagoryView()
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel:Show()
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel:Hide()
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel:Hide()
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel.isSelected = true
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel.isSelected = false
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel.isSelected = false
+end
+
+function PANEL:showProgramFileView()
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel:Hide()
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel:Show()
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel:Hide()
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel.isSelected = false
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel.isSelected = true
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel.isSelected = false
+end
+
+function PANEL:showProgramCodeView()
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel:Hide()
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel:Hide()
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel:Show()
+    self.basePanel.baseModePanel.programBasePanel.catTabPanel.isSelected = false
+    self.basePanel.baseModePanel.programBasePanel.fileTabPanel.isSelected = false
+    self.basePanel.baseModePanel.programBasePanel.editorTabPanel.isSelected = true
 end
 
 function PANEL:AddSidebar()
     --Sidebar
-    self.sidebarPanel = vgui.Create("DPanel", self.basePanel)
-    self.sidebarPanel:Dock(LEFT)
-    self.sidebarPanel:SetWide(self:GetWide()/6)
-    self.sidebarPanel:SetTall(self:GetTall())
-    self.sidebarPanel:SetBackgroundColor(Color(75,75,75,255))
+    self.basePanel.sidebarPanel = vgui.Create("DPanel", self.basePanel)
+    self.basePanel.sidebarPanel:Dock(LEFT)
+    self.basePanel.sidebarPanel:SetWide(self:GetWide()/6)
+    self.basePanel.sidebarPanel:SetTall(self:GetTall())
+    self.basePanel.sidebarPanel:SetBackgroundColor(COLORS.base)
 
     self:AddModeSelect()
     self:AddSidebarBrowser()
@@ -157,27 +278,27 @@ end
 
 function PANEL:AddSidebarBrowser()
     --base panel for browser
-    self.sidebarBrowserBase = vgui.Create("DPanel", self.sidebarPanel)
-    self.sidebarBrowserBase:SetWide(self.sidebarPanel:GetWide())
-    self.sidebarBrowserBase:Dock(FILL)
-    self.sidebarBrowserBase:SetBackgroundColor(Color(75,75,75,255))
+    self.basePanel.sidebarPanel.sidebarBrowserBase = vgui.Create("DPanel", self.basePanel.sidebarPanel)
+    self.basePanel.sidebarPanel.sidebarBrowserBase:SetWide(self.basePanel.sidebarPanel:GetWide())
+    self.basePanel.sidebarPanel.sidebarBrowserBase:Dock(FILL)
+    self.basePanel.sidebarPanel.sidebarBrowserBase:SetBackgroundColor(COLORS.base)
 
     --Tabs
-    self.sidebarBrowserBase.tabs = vgui.Create("DPanel", self.sidebarBrowserBase)
-    self.sidebarBrowserBase.tabs:Dock(TOP)
-    self.sidebarBrowserBase.tabs:SetWide(self.sidebarBrowserBase:GetWide())
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs = vgui.Create("DPanel", self.basePanel.sidebarPanel.sidebarBrowserBase)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs:Dock(TOP)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs:SetWide(self.basePanel.sidebarPanel.sidebarBrowserBase:GetWide())
     
     --File view tab
-    self.sidebarBrowserBase.tabs.fileTab = vgui.Create("DButton", self.sidebarBrowserBase.tabs)
-    self.sidebarBrowserBase.tabs.fileTab:Dock(LEFT)
-    self.sidebarBrowserBase.tabs.fileTab:SetWide((self.sidebarBrowserBase.tabs:GetWide()/2)+1)
-    self.sidebarBrowserBase.tabs.fileTab:SetText("File View")
-    self.sidebarBrowserBase.tabs.fileTab.DoClick = function(tab)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab = vgui.Create("DButton", self.basePanel.sidebarPanel.sidebarBrowserBase.tabs)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab:Dock(LEFT)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab:SetWide((self.basePanel.sidebarPanel.sidebarBrowserBase.tabs:GetWide()/2)+1)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab:SetText("File View")
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab.DoClick = function(tab)
         self:showSidebarFileBrowser()
     end
-    self.sidebarBrowserBase.tabs.fileTab.Paint = function(tab,w,h)
-        if self.sidebarBrowserBase.tabs.fileTab.isSelected then
-            surface.SetDrawColor(75, 75, 75, 255)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab.Paint = function(tab,w,h)
+        if self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab.isSelected then
+            surface.SetDrawColor(90, 90, 90, 255)
         else
             surface.SetDrawColor(130, 130, 130, 255)
         end
@@ -185,16 +306,16 @@ function PANEL:AddSidebarBrowser()
     end
 
     --Catagory view tab
-    self.sidebarBrowserBase.tabs.catTab = vgui.Create("DButton", self.sidebarBrowserBase.tabs)
-    self.sidebarBrowserBase.tabs.catTab:Dock(RIGHT)
-    self.sidebarBrowserBase.tabs.catTab:SetWide(self.sidebarBrowserBase.tabs:GetWide()/2)
-    self.sidebarBrowserBase.tabs.catTab:SetText("Catagory View")
-    self.sidebarBrowserBase.tabs.catTab.DoClick = function(tab)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab = vgui.Create("DButton", self.basePanel.sidebarPanel.sidebarBrowserBase.tabs)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab:Dock(RIGHT)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab:SetWide(self.basePanel.sidebarPanel.sidebarBrowserBase.tabs:GetWide()/2)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab:SetText("Catagory View")
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab.DoClick = function(tab)
         self:showSidebarCatagoryBrowser()
     end
-    self.sidebarBrowserBase.tabs.catTab.Paint = function(tab,w,h)
-        if self.sidebarBrowserBase.tabs.catTab.isSelected then
-            surface.SetDrawColor(75, 75, 75, 255)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab.Paint = function(tab,w,h)
+        if self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab.isSelected then
+            surface.SetDrawColor(90, 90, 90, 255)
         else
             surface.SetDrawColor(130, 130, 130, 255)
         end
@@ -206,69 +327,75 @@ function PANEL:AddSidebarBrowser()
 end
 
 function PANEL:AddSidebarFileBrowser()
-    self.sidebarBrowserBase.fileBrowserBase = vgui.Create("DPanel", self.sidebarBrowserBase)
-    self.sidebarBrowserBase.fileBrowserBase:Dock(FILL)
-    self.sidebarBrowserBase.tabs.fileTab.isSelected = true
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase = vgui.Create("DPanel", self.basePanel.sidebarPanel.sidebarBrowserBase)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase:Dock(FILL)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab.isSelected = true
     
-    self.sidebarBrowserBase.fileBrowserBase.tempLabel = vgui.Create("DLabel", self.sidebarBrowserBase.fileBrowserBase)
-    self.sidebarBrowserBase.fileBrowserBase.tempLabel:SetText("FILE VIEW")
-    self.sidebarBrowserBase.fileBrowserBase.tempLabel:SetTextColor(Color(0,0,0,255))
-    self.sidebarBrowserBase.fileBrowserBase.tempLabel:Dock(TOP)
-    self.sidebarBrowserBase.fileBrowserBase.tempLabel:SetContentAlignment(5)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase.tempLabel = vgui.Create("DLabel", self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase.tempLabel:SetText("FILE VIEW")
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase.tempLabel:SetTextColor(Color(0,0,0,255))
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase.tempLabel:Dock(TOP)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase.tempLabel:SetContentAlignment(5)
 end
 
 function PANEL:AddSidebarCatagoryBrowser()
-    self.sidebarBrowserBase.catBrowserBase = vgui.Create("DPanel", self.sidebarBrowserBase)
-    self.sidebarBrowserBase.catBrowserBase:Dock(FILL)
-    self.sidebarBrowserBase.catBrowserBase:Hide()
-    self.sidebarBrowserBase.tabs.catTab.isSelected = false
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase = vgui.Create("DPanel", self.basePanel.sidebarPanel.sidebarBrowserBase)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase:Dock(FILL)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase:Hide()
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab.isSelected = false
 
-    self.sidebarBrowserBase.catBrowserBase.tempLabel = vgui.Create("DLabel", self.sidebarBrowserBase.catBrowserBase)
-    self.sidebarBrowserBase.catBrowserBase.tempLabel:SetText("CATAGORY VIEW")
-    self.sidebarBrowserBase.catBrowserBase.tempLabel:SetTextColor(Color(0,0,0,255))
-    self.sidebarBrowserBase.catBrowserBase.tempLabel:Dock(TOP)
-    self.sidebarBrowserBase.catBrowserBase.tempLabel:SetContentAlignment(5)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase.tempLabel = vgui.Create("DLabel", self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase.tempLabel:SetText("CATAGORY VIEW")
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase.tempLabel:SetTextColor(Color(0,0,0,255))
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase.tempLabel:Dock(TOP)
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase.tempLabel:SetContentAlignment(5)
 end
 
 function PANEL:showSidebarFileBrowser()
-    self.sidebarBrowserBase.fileBrowserBase:Show()
-    self.sidebarBrowserBase.catBrowserBase:Hide()
-    self.sidebarBrowserBase.tabs.fileTab.isSelected = true
-    self.sidebarBrowserBase.tabs.catTab.isSelected = false
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase:Show()
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase:Hide()
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab.isSelected = true
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab.isSelected = false
 end
 
 function PANEL:showSidebarCatagoryBrowser()
-    self.sidebarBrowserBase.catBrowserBase:Show()
-    self.sidebarBrowserBase.fileBrowserBase:Hide()
-    self.sidebarBrowserBase.tabs.catTab.isSelected = true
-    self.sidebarBrowserBase.tabs.fileTab.isSelected = false
+    self.basePanel.sidebarPanel.sidebarBrowserBase.catBrowserBase:Show()
+    self.basePanel.sidebarPanel.sidebarBrowserBase.fileBrowserBase:Hide()
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.catTab.isSelected = true
+    self.basePanel.sidebarPanel.sidebarBrowserBase.tabs.fileTab.isSelected = false
 end
 
 function PANEL:AddModeSelect()
     --Mode select
-    self.modeSelect = vgui.Create("DPanel", self.sidebarPanel)
-    self.modeSelect:SetTall(self.sidebarPanel:GetTall()/3.5)
-    self.modeSelect:Dock(TOP)
+    self.basePanel.sidebarPanel.modeSelect = vgui.Create("DPanel", self.basePanel.sidebarPanel)
+    self.basePanel.sidebarPanel.modeSelect:SetTall(self.basePanel.sidebarPanel:GetTall()/3.5)
+    self.basePanel.sidebarPanel.modeSelect:Dock(TOP)
 
     --Mode List Title 
-    self.modeSelectTitle = vgui.Create("DLabel", self.modeSelect)
-    self.modeSelectTitle:Dock(TOP)
-    self.modeSelectTitle:SetContentAlignment(5)
-    self.modeSelectTitle:SetText("Modes")
-    self.modeSelectTitle:SetTextColor(Color(0,0,0,255))
-    self.modeSelectTitle.Paint = function(self,w,h)
+    self.basePanel.sidebarPanel.modeSelect.modeSelectTitle = vgui.Create("DLabel", self.basePanel.sidebarPanel.modeSelect)
+    self.basePanel.sidebarPanel.modeSelect.modeSelectTitle:Dock(TOP)
+    self.basePanel.sidebarPanel.modeSelect.modeSelectTitle:SetTall(24)
+    self.basePanel.sidebarPanel.modeSelect.modeSelectTitle:SetContentAlignment(5)
+    self.basePanel.sidebarPanel.modeSelect.modeSelectTitle:SetText("Modes")
+    self.basePanel.sidebarPanel.modeSelect.modeSelectTitle:SetTextColor(Color(0,0,0,255))
+    self.basePanel.sidebarPanel.modeSelect.modeSelectTitle.Paint = function(self,w,h)
         surface.SetDrawColor(75, 75, 75, 255)
         surface.DrawRect(0, 0, w, h)
     end
     --Elements in list
-    self.modeSelectElements = vgui.Create("DPanel", self.modeSelect)
-    self.modeSelectElements:Dock(FILL)
-    self.modeSelectElements:SetBackgroundColor(Color(240,240,240,255))
+    self.basePanel.sidebarPanel.modeSelect.modeSelectElements = vgui.Create("DPanel", self.basePanel.sidebarPanel.modeSelect)
+    self.basePanel.sidebarPanel.modeSelect.modeSelectElements:Dock(FILL)
+    self.basePanel.sidebarPanel.modeSelect.modeSelectElements:SetBackgroundColor(Color(240,240,240,255))
 end
 
 function PANEL:SelectMode(mode)
-    for k,v in pairs(self.basePanel:GetChildren()) do
+    self.CurrentMode = mode
+    self.tool:SetToolMode(mode)
+    for k,v in pairs(self.basePanel.baseModePanel:GetChildren()) do
         if(v:GetName()==mode) then
+            if(v.OnSelect) then
+                v:OnSelect()
+            end
             v:Show()
         else
             if(v:GetDock()==FILL) then
@@ -278,17 +405,16 @@ function PANEL:SelectMode(mode)
     end
 end
 
-
 function PANEL:PopulateModeList()
-    if self.modeSelectElements.populated then return end
-    self.modeSelectElements.modeContainer = {}
+    if self.basePanel.sidebarPanel.modeSelect.modeSelectElements.populated then return end
+    self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer = {}
     for k,v in pairs(self.tool.ModeList) do
         if k==1 then continue end
-        self.modeSelectElements.modeContainer[k] = vgui.Create("DPanel", self.modeSelectElements)
-        self.modeSelectElements.modeContainer[k]:Dock(TOP)
-        self.modeSelectElements.modeContainer[k]:DockPadding(5, 0, 5, 0)
-        self.modeSelectElements.modeContainer[k]:SetTall(self.modeSelectElements:GetTall()/1.4)
-        self.modeSelectElements.modeContainer[k].Paint = function(self,w,h)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k] = vgui.Create("DPanel", self.basePanel.sidebarPanel.modeSelect.modeSelectElements)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:Dock(TOP)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:DockPadding(5, 0, 5, 0)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:SetTall(self.basePanel.sidebarPanel.modeSelect.modeSelectElements:GetTall()/1.4)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].Paint = function(self,w,h)
             if k%2==1 then
                 surface.SetDrawColor(200, 200, 200, 255)
             else
@@ -299,21 +425,21 @@ function PANEL:PopulateModeList()
             end
             surface.DrawRect(0, 0, w, h)
         end
-        self.modeSelectElements.modeContainer[k].label = vgui.Create("DLabel", self.modeSelectElements.modeContainer[k], v)
-        self.modeSelectElements.modeContainer[k].label:SetText(v)
-        self.modeSelectElements.modeContainer[k]:SetTall(self.modeSelectElements.modeContainer[k]:GetTall())
-        self.modeSelectElements.modeContainer[k].label:Dock(FILL)
-        self.modeSelectElements.modeContainer[k].label:SetTextColor(Color(0,0,0,255))
-        self.modeSelectElements.modeContainer[k].label:SetMouseInputEnabled(true)
-        self.modeSelectElements.modeContainer[k].label.DoClick = function(label)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label = vgui.Create("DLabel", self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k], v)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label:SetText(v)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label:Dock(FILL)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:SetTall(self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:GetTall())
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label:SetTextColor(Color(0,0,0,255))
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label:SetMouseInputEnabled(true)
+        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label.DoClick = function(label)
             self:SelectMode(GZT_ZONETOOL.ModeList[k])
         end
     end
-    self.modeSelectElements.populated=true
+    self.basePanel.sidebarPanel.modeSelect.modeSelectElements.populated=true
 end
 
 function PANEL:Paint(width, height)
-    draw.RoundedBox(5, 0, 0, width, height, Color(75,75,75,255))
+    draw.RoundedBox(5, 0, 0, width, height, COLORS.base)
 end
 
 function PANEL:Think()
@@ -336,4 +462,4 @@ concommand.Add("gzt_kill_gui", function()
     end
 end)
 
-vgui.Register("gzt_gui", PANEL, "EditablePanel")
+vgui.Register("gzt_gui", PANEL, "EditablePanel") --has to be EditablePanel or else text entry wont work (thanks garry)

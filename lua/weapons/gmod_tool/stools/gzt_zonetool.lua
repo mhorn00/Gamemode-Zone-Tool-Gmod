@@ -41,11 +41,17 @@ TOOL.CurrentBox = {
 TOOL.SelectedCorner = nil
 TOOL.GrabMagnitude = -1
 
+print(TOOL, "<-- TOOL TABLE")
+
 if(SERVER) then
 	PausedPlayers={}
+	HoveringPlayers={}
 	util.AddNetworkString("playerPaused")
 	util.AddNetworkString("playerUnpaused")
+	util.AddNetworkString("PlayerIsHovering")
 	util.AddNetworkString("SetGrabMag")
+	util.AddNetworkString("SetCurrentBox")
+	util.AddNetworkString("SetToolMode")
 	net.Receive("playerPaused", function(len, ply)
 		if (IsValid(ply) and ply:IsPlayer()) then
 			PausedPlayers[ply:AccountID()] = true
@@ -68,12 +74,40 @@ if(SERVER) then
 		local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 		toolInst.GrabMagnitude = net.ReadFloat() 
 	end)
+
+	net.Receive("SetToolMode", function(len, ply)
+		if (IsValid(ply) and ply:IsPlayer()) then
+			local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+			toolInst:SetOperation(net.ReadInt(len,4))
+		end
+	end)
+
+	net.Receive("PlayerIsHovering", function(len, ply)
+		
+	end)
+
+else // in client
+	net.Receive("SetCurrentBox", function()
+		TOOL.CurrentBox.Ent = net.ReadEntity()
+		TOOL.CurrentBox.MinBound = TOOL.CurrentBox.Ent:GetMinBound()
+		TOOL.CurrentBox.MaxBound = TOOL.CurrentBox.Ent:GetMaxBound()
+	end)
 end
 
 for k,v in pairs(TOOL.Modes) do
 	TOOL["KF"..v..KEY_R] = function(self, KeyCombo)
 		if KeyCombo.processed then return end
 		self:UpdateToolMode()
+	end
+	TOOL["KF"..v..KEY_H] = function(self, KeyCombo)
+		if !KeyCombo.processed && !KeyCombo.released && CLIENT then
+			if(!GZT_PANEL) then
+				GZT_PANEL = vgui.Create("gzt_gui")
+			end
+			GZT_PANEL:SetVisible(true)
+			GZT_PANEL:SetToolRef(self)
+			GZT_PANEL:PopulateUI()
+		end	
 	end
 end
 
@@ -115,11 +149,6 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCom
 	end
 end
 
-TOOL["KF"..TOOL.Modes.Create..KEY_LCONTROL..KEY_E] = function(self, KeyCombo)
-	if KeyCombo.processed then return end
-	PrintTable(self.CurrentBox)
-end
-
 TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released then
 		if(!IsValid(self.SelectedCorner)) then
@@ -146,17 +175,6 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 	end
 end
 
-TOOL["KF"..TOOL.Modes.GUI..KEY_H] = function(self, KeyCombo)
-	if !KeyCombo.processed && !KeyCombo.released && CLIENT then
-		if(!GZT_PANEL) then
-			GZT_PANEL = vgui.Create("gzt_gui")
-		end
-		GZT_PANEL:SetVisible(true)
-		GZT_PANEL:SetToolRef(self)
-	end	
-end
-
-
 function TOOL.BuildCPanel(CPanel)
 	local button = vgui.Create("DButton")
 	CPanel:AddItem(button)
@@ -170,8 +188,26 @@ end
 function TOOL:GetToolModeOperation(operation)
 	return self.ModeList[operation+1]
 end
+
+function TOOL:SetToolMode(mode)
+
+	local toMode = 2 -- defualt to create mode
+	for i,m in pairs(self.ModeList) do
+		if m==mode then
+			toMode=i
+		end
+	end
+	if CLIENT then
+		print("mode in settoolmode ",mode)
+		net.Start("SetToolMode")
+		net.WriteInt(toMode-1, 4)
+		net.SendToServer()
+	end
+	self:SetOperation(toMode-1)
+end
  
 function TOOL:UpdateToolMode()
+	if(CLIENT) then print(self) end
 	if self:GetOperation() == 0 then
         self:SetOperation(1)
     elseif self:GetOperation() < #self.ModeList - 1 then
@@ -181,7 +217,17 @@ function TOOL:UpdateToolMode()
     end
 end
 
+TOOL.HoverStatus = false
+
 function TOOL:Think()
+	if CLIENT then
+		if((vgui.GetHoveredPanel()!=nil)!=self.HoverStatus) then
+			print("hovering over something")
+			net.Start("PlayerIsHovering")
+			net.SendToServer()
+			self.HoverStatus = !self.HoverStatus
+		end
+	end
 	if CLIENT && (gui && gui.IsGameUIVisible()) && !self.isPaused then
 		self.isPaused = true
 		net.Start("playerPaused")
@@ -197,10 +243,13 @@ function TOOL:Think()
 		self.KeyExecutionQueue = {}
 		self.KeyCreationQueue = {}
 	end
-	if ((gui && !gui.IsGameUIVisible()) || (SERVER && !PausedPlayers[self:GetOwner():AccountID()])) then
+	if ( (gui && !gui.IsGameUIVisible()) || (SERVER && !PausedPlayers[self:GetOwner():AccountID()])) then
 		self:ProcessInput()
 	end
 	if self:GetToolMode() == self.Modes.Loading then
+		if CLIENT then	
+			GZT_ZONETOOL = self
+		end
 		self:UpdateToolMode()
 	end
 end
@@ -648,6 +697,8 @@ if CLIENT then
 	language.Add("tool.gzt_zonetool."..TOOL.Modes.Edit, TOOL.Modes.Edit)
 end
 
-GZT_ZONETOOL = TOOL
+if CLIENT then
+	GZT_ZONETOOL = TOOL
+end
 
 include("modules/cl_gui.lua")

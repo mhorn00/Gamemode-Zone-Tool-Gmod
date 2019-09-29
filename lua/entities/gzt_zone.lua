@@ -31,7 +31,7 @@ function ENT:SetupDataTables()
 	self:NetworkVar("Vector",1,"MaxBound")
 	self:NetworkVar("String",0,"Catagory")
 end
---pos, smllestsize, physbox, order, update other corners
+
 function ENT:Resize(changedcorner)
 	if CLIENT then return end
 	local opposite = self.CornerEnts[(7-changedcorner:GetIndex())+1]
