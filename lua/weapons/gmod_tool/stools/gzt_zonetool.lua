@@ -14,17 +14,13 @@ TOOL.Modes = {
 	Loading = "Loading",
 	Create = "Create",
 	Edit = "Edit",
-	GUI = "GUI",
-	Program = "Program Mode",
-	TESTMODE3 = "Test Mode 3"
+	Program = "Program Mode"
 }
 TOOL.ModeList = {
 	TOOL.Modes.Loading,
 	TOOL.Modes.Create,
 	TOOL.Modes.Edit,
-	TOOL.Modes.GUI,
-	TOOL.Modes.Program,
-	TOOL.Modes.TESTMODE3
+	TOOL.Modes.Program
 }
 TOOL.KeyTable = {}
 TOOL.KeyCreationQueue = {}
@@ -41,11 +37,11 @@ TOOL.CurrentBox = {
 TOOL.SelectedCorner = nil
 TOOL.GrabMagnitude = -1
 
-print(TOOL, "<-- TOOL TABLE")
+local PausedPlayers={}
+local HoveringPlayers={}
 
 if(SERVER) then
-	PausedPlayers={}
-	HoveringPlayers={}
+
 	util.AddNetworkString("playerPaused")
 	util.AddNetworkString("playerUnpaused")
 	util.AddNetworkString("PlayerIsHovering")
@@ -83,7 +79,14 @@ if(SERVER) then
 	end)
 
 	net.Receive("PlayerIsHovering", function(len, ply)
-		
+		if(HoveringPlayers[ply]==true) then
+			HoveringPlayers[ply] = nil
+			local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
+			toolInst.KeyCreationQueue = {}
+			toolInst.KeyExecutionQueue = {}
+		else
+			HoveringPlayers[ply] = true
+		end
 	end)
 
 else // in client
@@ -221,11 +224,17 @@ TOOL.HoverStatus = false
 
 function TOOL:Think()
 	if CLIENT then
+		//print(self.HoverStatus)
 		if((vgui.GetHoveredPanel()!=nil)!=self.HoverStatus) then
-			print("hovering over something")
+			//print("hovering over something")
 			net.Start("PlayerIsHovering")
 			net.SendToServer()
+			
 			self.HoverStatus = !self.HoverStatus
+			if(!self.HoverStatus) then
+				self.KeyCreationQueue = {}
+				self.KeyExecutionQueue = {}
+			end
 		end
 	end
 	if CLIENT && (gui && gui.IsGameUIVisible()) && !self.isPaused then
@@ -243,7 +252,8 @@ function TOOL:Think()
 		self.KeyExecutionQueue = {}
 		self.KeyCreationQueue = {}
 	end
-	if ( (gui && !gui.IsGameUIVisible()) || (SERVER && !PausedPlayers[self:GetOwner():AccountID()])) then
+	if ( (gui && !gui.IsGameUIVisible() && vgui.GetHoveredPanel()==nil) || (SERVER && !PausedPlayers[self:GetOwner():AccountID()] && !HoveringPlayers[self:GetOwner()])) then
+		//PrintTable(HoveringPlayers)
 		self:ProcessInput()
 	end
 	if self:GetToolMode() == self.Modes.Loading then
