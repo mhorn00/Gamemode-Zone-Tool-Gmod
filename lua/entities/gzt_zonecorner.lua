@@ -33,12 +33,8 @@ end
 
 function ENT:Draw()
     local cb1 ,cb2 = self:GetCollisionBounds()
+    --TODO: only draw outline when grabing thje corner 
     cam.Start3D()
-        render.DrawWireframeBox(self:GetPos(), self:GetAngles(), cb1, cb2, self:GetColor())
+        --render.DrawWireframeBox(self:GetPos(), self:GetAngles(), cb1, cb2, self:GetColor())
     cam.End3D()
-    if self:GetIndex() then
-        cam.Start3D2D(self:GetPos(), self:GetAngles(), 1)
-            draw.DrawText(self:GetIndex(), "DermaLarge", 0, 0, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER)
-        cam.End3D2D()
-    end
 end

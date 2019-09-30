@@ -6,3 +6,10 @@
 
 # Adding zones to catagories
 - snap to edges
+
+# Things zones should be able to do
+- Make a face solid or all faces solid
+- set a texture on a face
+- set what events it fire
+- show direction overlay
+- other things i cant think of rn lol 

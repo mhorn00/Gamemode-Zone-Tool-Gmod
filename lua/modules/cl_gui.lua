@@ -19,13 +19,14 @@ end
 
 function PANEL:PopulateUI()
     self:PopulateModeList()
-    self.basePanel.baseModePanel.createPanelBase:OnSelect()
+    self:PopulateCatagoriesCreate()
     if(!self.FirstSelected) then
         self.FirstSelected = true
         self:SelectMode(self.tool:GetToolMode())
     end
 end
 
+local GZT_ZONEDEF_FILELIST = {}
 local GZT_ZONEDEFS = {}
 
 function SearchForGZTZonedef(dir, depth)
@@ -40,8 +41,8 @@ function SearchForGZTZonedef(dir, depth)
     for k,v in pairs(rfiles) do
         //print(v)
         if(v == "gzt_zonedef.lua") then
-            GZT_ZONEDEFS[#GZT_ZONEDEFS+1] = dir.."/"..v
-        end
+            GZT_ZONEDEF_FILELIST[#GZT_ZONEDEF_FILELIST+1] = {path=dir.."/"..v, gm = ""}
+        end 
     end
     //print("searching directories within "..dir)
     for k,v in pairs(rdirs) do
@@ -52,16 +53,17 @@ end
 
 local files, dirs = file.Find("*", "THIRDPARTY")
 if(files) then
-    -- PrintTable(files)
-    -- print("========== ^ FILES  v DIRS =========")
-    -- PrintTable(dirs)
     for k,v in pairs(dirs) do
-        -- print("initial searching ", v)
         SearchForGZTZonedef(v, 0)
     end
-    -- PrintTable(GZT_ZONEDEFS)
-end
+end 
 
+for k,v in pairs(GZT_ZONEDEF_FILELIST) do
+    print(v.path)
+    local file_contents = file.Read(v.path, "THIRDPARTY")
+    file.Write("lua/temp_loading.txt", file_contents)
+    GZT_ZONEDEFS[#GZT_ZONEDEFS+1] = {}
+end
 
 function PANEL:Init()
     self:SetSize(ScrW()/2, ScrH()/1.5)
@@ -85,6 +87,7 @@ function PANEL:AddTopbar()
         draw.RoundedBoxEx(5, 0, 0, width, height, Color(100,100,100,255), true, true, false, false)
     end
     self.topbar.OnMousePressed = function(topbar)
+        print("dragging")
         self.topbar.isDragging = true
         local x,y = self:GetPos()
         self.topbar.clickPos = {gui.MouseX()-x, gui.MouseY()-y}
@@ -94,7 +97,6 @@ function PANEL:AddTopbar()
         self.topbar.clickPos = nil
     end
     self.topbar.isDragging=false
-    
     
     --Close Button
     self.closeBtn = vgui.Create("DButton", self.topbar)
@@ -141,17 +143,15 @@ function PANEL:AddCreateMode()
     self.basePanel.baseModePanel.createPanelBase.gamemodeSelect = vgui.Create("DComboBox", self.basePanel.baseModePanel.createPanelBase)
     self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:DockMargin(0,0,500,0)
     self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:Dock(TOP)
-
-    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel = vgui.Create("DPanel", self.basePanel.baseModePanel.createPanelBase)
-    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel:Dock(FILL)
-    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel:SetBackgroundColor(COLORS.base)
-    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel.label = vgui.Create("DLabel", self.basePanel.baseModePanel.createPanelBase.currentBoxPanel)
-    self.basePanel.baseModePanel.createPanelBase.currentBoxPanel.label:Dock(FILL)
-
-    --self.basePanel.createPanelBase.gamemodeSelect:SetWide(self.basePanel.createPanelBase:GetWide()/4)
-    self.basePanel.baseModePanel.createPanelBase.OnSelect = function(panel)
-        self.basePanel.baseModePanel.createPanelBase.currentBoxPanel.label:SetText(tostring(self.tool.CurrentBox.MinBound).."    "..tostring(self.tool.CurrentBox.MaxBound))
+    for i,gm in pairs(engine.GetGamemodes()) do
+        self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:AddChoice(gm.name)
     end
+
+    self.basePanel.baseModePanel.createPanelBase.catagoryView = vgui.Create("DTree", self.basePanel.baseModePanel.createPanelBase)
+    self.basePanel.baseModePanel.createPanelBase.catagoryView:DockMargin(0, 20, 0, 0)
+    self.basePanel.baseModePanel.createPanelBase.catagoryView:Dock(FILL)
+
+
 end
 
 function PANEL:AddProgramMode()
@@ -454,6 +454,114 @@ function PANEL:PopulateModeList()
     self.basePanel.sidebarPanel.modeSelect.modeSelectElements.populated=true
 end
 
+function PANEL:PopulateCatagoriesCreate()
+    local zones = {
+        {
+            Aname="Test Catagory 1 (2 children)",
+            children = {
+                {
+                    Aname="Test Catagory 1 (Child 1)",
+                    children = {}   
+                },
+                {
+                    Aname="Test Catagory 1 (Child 2)",
+                    children = {}   
+                }
+            }
+        },
+        {
+            Aname="Test Catagory 2 (no children)",
+            children = {}
+        },
+        {
+            Aname="Test Catagory 3 (3 children)",
+            children={
+                {
+                    Aname="Test Catagory 3 (Child 1)",
+                    children={
+                        {
+                            Aname="Test Catagory 3 (Child Child 2)",
+                            children={
+                                {
+                                    Aname="Test Catagory 3 (Child Child Child 3)",
+                                    children={
+                                        {
+                                            Aname="Test Catagory 3 (Child Child Child Child 3)",
+                                            children={
+                                                {
+                                                    Aname="Test Catagory 3 (Child Child Child Child Child 3)",
+                                                    children={
+                                                        {
+                                                            Aname="Test Catagory 3 (Child Child Child Child Child Child 3)",
+                                                            children={
+                                                                {
+                                                                    Aname="Test Catagory 3 (Child Child Child Child Child Child Child 3)",
+                                                                    children={
+                                                                        {
+                                                                            Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child 3)",
+                                                                            children={
+                                                                                {
+                                                                                    Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child Child 3)",
+                                                                                    children={
+                                                                                        {
+                                                                                            Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child Child Child 3)",
+                                                                                            children={
+                                                                                                {
+                                                                                                    Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child Child Child Child 3)",
+                                                                                                    children={
+                                                                                                        {
+                                                                                                            Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child Child Child Child Child 3)",
+                                                                                                            children={
+                                                                                                                
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes = {}
+    for i,cat in pairs(zones) do
+        local stack = {} --useing stack based search rather than recursion bc i dont like recursion =)
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.Aname] = self.basePanel.baseModePanel.createPanelBase.catagoryView:AddNode(cat.Aname)
+        stack[1] = cat
+        while (#stack>0) do
+            local cur = stack[1]
+            table.remove(stack, 1)
+            if cur.children && cur.children != {} then
+                for k,child in pairs(cur.children) do
+                    stack[#stack+1] = child
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.Aname] = self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.Aname]:AddNode(child.Aname)
+                end
+            end
+        end
+    end
+end
+
+function PANEL:FindChildren(node)
+
+end
+
 function PANEL:Paint(width, height)
     draw.RoundedBox(5, 0, 0, width, height, COLORS.base)
 end
@@ -464,14 +572,18 @@ function PANEL:Think()
         self:Remove()
     end
 	if ( self.topbar.isDragging ) then
-        local x,y = self:GetPos()
-        local mousex = math.Clamp( gui.MouseX(), 1, ScrW() - 1 )
-	    local mousey = math.Clamp( gui.MouseY(), 1, ScrH() - 1 )
-        local panelx, panely = self:GetPos()
-        local offsetx = mousex - panelx
-		local offsety = mousey - panely
-        self:SetPos(math.Clamp(x+offsetx-self.topbar.clickPos[1], 0, ScrW()-self:GetWide()), math.Clamp(y+offsety-self.topbar.clickPos[2],0, ScrH()-self:GetTall()))
-        --TODO:set isdragging false if not holding mouse left
+        if(!input.IsMouseDown(MOUSE_LEFT)) then
+            self.topbar.isDragging = false
+            self.topbar.clickPos = nil
+        else
+            local x,y = self:GetPos()
+            local mousex = math.Clamp( gui.MouseX(), 1, ScrW() - 1 )
+	        local mousey = math.Clamp( gui.MouseY(), 1, ScrH() - 1 )
+            local panelx, panely = self:GetPos()
+            local offsetx = mousex - panelx
+		    local offsety = mousey - panely
+            self:SetPos(math.Clamp(x+offsetx-self.topbar.clickPos[1], 0, ScrW()-self:GetWide()), math.Clamp(y+offsety-self.topbar.clickPos[2],0, ScrH()-self:GetTall()))
+        end
 	end
 end
 

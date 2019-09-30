@@ -201,7 +201,6 @@ function TOOL:SetToolMode(mode)
 		end
 	end
 	if CLIENT then
-		print("mode in settoolmode ",mode)
 		net.Start("SetToolMode")
 		net.WriteInt(toMode-1, 4)
 		net.SendToServer()
@@ -224,12 +223,9 @@ TOOL.HoverStatus = false
 
 function TOOL:Think()
 	if CLIENT then
-		//print(self.HoverStatus)
 		if((vgui.GetHoveredPanel()!=nil)!=self.HoverStatus) then
-			//print("hovering over something")
 			net.Start("PlayerIsHovering")
 			net.SendToServer()
-			
 			self.HoverStatus = !self.HoverStatus
 			if(!self.HoverStatus) then
 				self.KeyCreationQueue = {}
@@ -253,7 +249,6 @@ function TOOL:Think()
 		self.KeyCreationQueue = {}
 	end
 	if ( (gui && !gui.IsGameUIVisible() && vgui.GetHoveredPanel()==nil) || (SERVER && !PausedPlayers[self:GetOwner():AccountID()] && !HoveringPlayers[self:GetOwner()])) then
-		//PrintTable(HoveringPlayers)
 		self:ProcessInput()
 	end
 	if self:GetToolMode() == self.Modes.Loading then
