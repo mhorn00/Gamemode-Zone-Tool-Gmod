@@ -157,6 +157,7 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 		if(!IsValid(self.SelectedCorner)) then
 			tr = self:GetOwner():GetEyeTrace()
 			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner") then
+			// set grab state for all corners to true, grabplayer maybe = self:GetOwner()?
 				self.SelectedCorner = tr.Entity
 				self.SelectedCorner:SetColor(Color(0,0,255,255))
 				self.GrabMagnitude=self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
@@ -209,7 +210,7 @@ function TOOL:SetToolMode(mode)
 end
  
 function TOOL:UpdateToolMode()
-	if(CLIENT) then print(self) end
+	//if(CLIENT) then print(self) end
 	if self:GetOperation() == 0 then
         self:SetOperation(1)
     elseif self:GetOperation() < #self.ModeList - 1 then
@@ -661,7 +662,6 @@ function SWEP:PostDrawViewModel(viewmodel, weapon, ply)
 			//TODO: make beam look nicer
 			local FOVScale = (ply:GetFOV()-75)/10
 			render.DrawBeam(vec + ply:GetAimVector():Angle():Right()*FOVScale, toolInst.SelectedCorner:GetPos(), 1, 1,1, Color(0,230,100))
-			render.DrawLine(toolInst.SelectedCorner:GetOwner():GetPos(),toolInst.SelectedCorner:GetOwner():GetPos()+toolInst.SmallerDifVector, Color(255,255,0,255))
 		cam.End3D()
 	end
 end

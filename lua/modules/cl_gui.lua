@@ -1,9 +1,23 @@
 AddCSLuaFile()
 
-if SERVER then return end
+
+if SERVER then 
+    util.AddNetworkString("gzt_receivecatagories")
+    return 
+end
 
 local PANEL = {}
 
+net.Receive("gzt_receivecatagories", function(len, ply)
+    local CatagoryList = net.ReadTable()
+    GZT_PANEL.CatagoryList = CatagoryList
+    //print("panel", PANEL)
+    //PrintTable(PANEL)
+    -- print("cat list ")
+    -- PrintTable(PANEL.CatagoryList)
+end)
+
+PANEL.CatagoryList = {}
 PANEL.FirstSelected = false
 PANEL.CurrentMode = nil
 
@@ -15,54 +29,16 @@ GZT_PANEL = nil
 
 function PANEL:SetToolRef(tool)
     self.tool = tool
+    net.Start("gzt_getcatagories")
+    net.SendToServer()
 end
 
 function PANEL:PopulateUI()
     self:PopulateModeList()
-    self:PopulateCatagoriesCreate()
     if(!self.FirstSelected) then
         self.FirstSelected = true
         self:SelectMode(self.tool:GetToolMode())
     end
-end
-
-local GZT_ZONEDEF_FILELIST = {}
-local GZT_ZONEDEFS = {}
-
-function SearchForGZTZonedef(dir, depth)
-    //print("checking recursively ", dir)
-    -- if(string.find(dir, "dummy")) then
-    --     print(dir)
-    -- end
-    if(depth>10) then
-        return false
-    end
-    local rfiles, rdirs = file.Find(dir.."/*", "THIRDPARTY")
-    for k,v in pairs(rfiles) do
-        //print(v)
-        if(v == "gzt_zonedef.lua") then
-            GZT_ZONEDEF_FILELIST[#GZT_ZONEDEF_FILELIST+1] = {path=dir.."/"..v, gm = ""}
-        end 
-    end
-    //print("searching directories within "..dir)
-    for k,v in pairs(rdirs) do
-        SearchForGZTZonedef(dir.."/"..v, depth+1)
-    end
-end
-
-
-local files, dirs = file.Find("*", "THIRDPARTY")
-if(files) then
-    for k,v in pairs(dirs) do
-        SearchForGZTZonedef(v, 0)
-    end
-end 
-
-for k,v in pairs(GZT_ZONEDEF_FILELIST) do
-    print(v.path)
-    local file_contents = file.Read(v.path, "THIRDPARTY")
-    file.Write("lua/temp_loading.txt", file_contents)
-    GZT_ZONEDEFS[#GZT_ZONEDEFS+1] = {}
 end
 
 function PANEL:Init()
@@ -145,6 +121,9 @@ function PANEL:AddCreateMode()
     self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:Dock(TOP)
     for i,gm in pairs(engine.GetGamemodes()) do
         self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:AddChoice(gm.name)
+    end
+    self.basePanel.baseModePanel.createPanelBase.gamemodeSelect.OnSelect = function(other_self, index, value, data)
+        self:PopulateCatagoriesCreate(self.CatagoryList[value])
     end
 
     self.basePanel.baseModePanel.createPanelBase.catagoryView = vgui.Create("DTree", self.basePanel.baseModePanel.createPanelBase)
@@ -454,96 +433,11 @@ function PANEL:PopulateModeList()
     self.basePanel.sidebarPanel.modeSelect.modeSelectElements.populated=true
 end
 
-function PANEL:PopulateCatagoriesCreate()
-    local zones = {
-        {
-            Aname="Test Catagory 1 (2 children)",
-            children = {
-                {
-                    Aname="Test Catagory 1 (Child 1)",
-                    children = {}   
-                },
-                {
-                    Aname="Test Catagory 1 (Child 2)",
-                    children = {}   
-                }
-            }
-        },
-        {
-            Aname="Test Catagory 2 (no children)",
-            children = {}
-        },
-        {
-            Aname="Test Catagory 3 (3 children)",
-            children={
-                {
-                    Aname="Test Catagory 3 (Child 1)",
-                    children={
-                        {
-                            Aname="Test Catagory 3 (Child Child 2)",
-                            children={
-                                {
-                                    Aname="Test Catagory 3 (Child Child Child 3)",
-                                    children={
-                                        {
-                                            Aname="Test Catagory 3 (Child Child Child Child 3)",
-                                            children={
-                                                {
-                                                    Aname="Test Catagory 3 (Child Child Child Child Child 3)",
-                                                    children={
-                                                        {
-                                                            Aname="Test Catagory 3 (Child Child Child Child Child Child 3)",
-                                                            children={
-                                                                {
-                                                                    Aname="Test Catagory 3 (Child Child Child Child Child Child Child 3)",
-                                                                    children={
-                                                                        {
-                                                                            Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child 3)",
-                                                                            children={
-                                                                                {
-                                                                                    Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child Child 3)",
-                                                                                    children={
-                                                                                        {
-                                                                                            Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child Child Child 3)",
-                                                                                            children={
-                                                                                                {
-                                                                                                    Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child Child Child Child 3)",
-                                                                                                    children={
-                                                                                                        {
-                                                                                                            Aname="Test Catagory 3 (Child Child Child Child Child Child Child Child Child Child Child Child 3)",
-                                                                                                            children={
-                                                                                                                
-                                                                                                            }
-                                                                                                        }
-                                                                                                    }
-                                                                                                }
-                                                                                            }
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+function PANEL:PopulateCatagoriesCreate(catagories)
     self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes = {}
-    for i,cat in pairs(zones) do
+    for i,cat in pairs(catagories) do
         local stack = {} --useing stack based search rather than recursion bc i dont like recursion =)
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.Aname] = self.basePanel.baseModePanel.createPanelBase.catagoryView:AddNode(cat.Aname)
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView:AddNode(cat.name)
         stack[1] = cat
         while (#stack>0) do
             local cur = stack[1]
@@ -551,7 +445,7 @@ function PANEL:PopulateCatagoriesCreate()
             if cur.children && cur.children != {} then
                 for k,child in pairs(cur.children) do
                     stack[#stack+1] = child
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.Aname] = self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.Aname]:AddNode(child.Aname)
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.name]:AddNode(child.name)
                 end
             end
         end
