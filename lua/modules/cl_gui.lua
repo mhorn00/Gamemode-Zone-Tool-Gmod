@@ -1,6 +1,5 @@
 AddCSLuaFile()
 
-
 if SERVER then 
     util.AddNetworkString("gzt_receivecatagories")
     return 
@@ -111,6 +110,7 @@ function PANEL:AddBaseModePanel()
 end
 
 function PANEL:AddCreateMode()
+
     self.basePanel.baseModePanel.createPanelBase = vgui.Create("DPanel", self.basePanel.baseModePanel, GZT_ZONETOOL.Modes.Create)
     self.basePanel.baseModePanel.createPanelBase:Dock(FILL)
     -- self.basePanel.createPanelBase:SetWide(number )
@@ -129,7 +129,14 @@ function PANEL:AddCreateMode()
     self.basePanel.baseModePanel.createPanelBase.catagoryView = vgui.Create("DTree", self.basePanel.baseModePanel.createPanelBase)
     self.basePanel.baseModePanel.createPanelBase.catagoryView:DockMargin(0, 20, 0, 0)
     self.basePanel.baseModePanel.createPanelBase.catagoryView:Dock(FILL)
-
+    self.basePanel.baseModePanel.createPanelBase.catagoryView.OnMousePressed = function(catagoryView, button_code)
+        if(button_code == MOUSE_RIGHT) then
+            self.basePanel.baseModePanel.createPanelBase.contextmenu = DermaMenu(self)
+            print(self.basePanel.baseModePanel.createPanelBase.contextmenu)
+            self.basePanel.baseModePanel.createPanelBase.contextmenu:AddOption("was up dode")
+            self.basePanel.baseModePanel.createPanelBase.contextmenu:Open()
+        end
+    end
 
 end
 
@@ -434,10 +441,40 @@ function PANEL:PopulateModeList()
 end
 
 function PANEL:PopulateCatagoriesCreate(catagories)
+    if self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes && self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes != {} then
+        for k,v in pairs(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes) do
+            v:Remove()
+        end 
+    end
     self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes = {}
+    if !catagories then
+        return
+    end
     for i,cat in pairs(catagories) do
         local stack = {} --useing stack based search rather than recursion bc i dont like recursion =)
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView:AddNode(cat.name)
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView:AddNode(cat.name, "materials/catagory_icon.png")
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].contextmenu = DermaMenu(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name])
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].Icon:SetImageColor(cat.color)
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].overrideable = false
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].DoRightClick = function(node, button)            
+            local cmenu = DermaMenu(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name])
+            cmenu:AddOption("Add Child")
+            cmenu:AddOption("Recolor")
+            cmenu.OptionSelected = function(cmenuself, option, text)
+                print(option, text)
+                if(text=="Add Child") then
+
+                elseif(text=="Recolor") then 
+                    print("wassup???")
+                    local dframe = vgui.Create("DFrame")
+                    local colorpicker = vgui.Create("DColorCombo", dframe)
+                    dframe:SizeToChildren(true,true)
+                    dframe:MakePopup()
+                    //colorpicker:SetColor(cat.color)
+                end
+            end
+            cmenu:Open()
+        end
         stack[1] = cat
         while (#stack>0) do
             local cur = stack[1]
@@ -445,21 +482,32 @@ function PANEL:PopulateCatagoriesCreate(catagories)
             if cur.children && cur.children != {} then
                 for k,child in pairs(cur.children) do
                     stack[#stack+1] = child
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.name]:AddNode(child.name)
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.name]:AddNode(child.name, "materials/catagory_icon.png")
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].Icon:SetImageColor(child.color)
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].overrideable = false
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].DoRightClick = function(node, button)
+                        local cmenu = DermaMenu(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name])
+                        cmenu:AddOption("Add Child")
+                        cmenu:AddOption("Recolor")
+                        cmenu.OptionSelected = function(option, text)
+                            if(text=="Add Child") then
+
+                            elseif(text=="Recolor") then 
+                                local colorpicker = vgui.Create("DColorCombo")
+                                colorpicker:SetColor(child.color)
+                            end
+                        end
+                        cmenu:Open()
+                    end
                 end
             end
         end
     end
 end
 
-function PANEL:FindChildren(node)
-
-end
-
 function PANEL:Paint(width, height)
     draw.RoundedBox(5, 0, 0, width, height, COLORS.base)
 end
-
 
 function PANEL:Think()
     if(!GZT_PANEL) then
