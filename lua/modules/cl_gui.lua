@@ -137,7 +137,6 @@ function PANEL:AddCreateMode()
             self.basePanel.baseModePanel.createPanelBase.contextmenu:Open()
         end
     end
-
 end
 
 function PANEL:AddProgramMode()
@@ -440,6 +439,65 @@ function PANEL:PopulateModeList()
     self.basePanel.sidebarPanel.modeSelect.modeSelectElements.populated=true
 end
 
+function checkNameAvailability(name)
+    for k,v in pairs(GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes) do
+        if k == name then
+            return v
+        end
+    end 
+    return nil
+end
+
+function menuhandler(node, button)     
+    local cmenu = DermaMenu(node)
+    cmenu:AddOption("Add Child")
+    local colorsub, coloroption = cmenu:AddSubMenu("Recolor", function()
+        return
+    end)
+    colorsub.colorcombo = vgui.Create("DColorCombo", colorsub)
+    colorsub.colorcombo.OnValueChanged = function(colorsubmenu, newcolor)
+        node.Icon:SetImageColor(newcolor)
+    end    
+    cmenu:AddOption("Rename")
+    cmenu.OptionSelected = function(menu, option, text)
+        if(text=="Add Child") then
+            local newCat = node:AddNode("New Catagory", "materials/catagory_icon.png")
+            newCat.DoRightClick = menuhandler
+        elseif(text=="Rename") then
+            node.Label:Hide()
+            node.originalname = node.Label:GetText()
+            node.textentry = vgui.Create("DTextEntry", node)
+            node.textentry:StretchToParent(38, nil, nil, nil)
+            node.textentry:SetTall(node:GetLineHeight())
+            local w,h = node.Label:GetTextSize() 
+            node.textentry:SetWide(w+15)
+            node.textentry:SetText(node:GetText())
+            node.textentry.OnChange = function(textentry)
+                if(checkNameAvailability(textentry:GetText()) && checkNameAvailability(textentry:GetText()) != node) then
+                    node.textentry:SetTextColor(Color(255,0,0,255))
+                else
+                    node.textentry:SetTextColor(Color(0,0,0,255))
+                end
+                node.Label:SetText(textentry:GetText())
+                local w,h = node.Label:GetTextSize() 
+                textentry:SetWide(w+15)
+            end
+            node.textentry.OnEnter = function(textentry)
+                if !checkNameAvailability(textentry:GetText()) || checkNameAvailability(textentry:GetText()) == node then
+                    node.Label:SetText(textentry:GetText())
+                    GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[node.originalname] = nil
+                    GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[node.Label:GetText()] = node
+                    textentry:Remove()
+                    node.Label:Show()
+                else
+                    return
+                end 
+            end
+        end
+    end
+    cmenu:Open()
+end
+
 function PANEL:PopulateCatagoriesCreate(catagories)
     if self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes && self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes != {} then
         for k,v in pairs(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes) do
@@ -456,25 +514,8 @@ function PANEL:PopulateCatagoriesCreate(catagories)
         self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].contextmenu = DermaMenu(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name])
         self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].Icon:SetImageColor(cat.color)
         self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].overrideable = false
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].DoRightClick = function(node, button)            
-            local cmenu = DermaMenu(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name])
-            cmenu:AddOption("Add Child")
-            cmenu:AddOption("Recolor")
-            cmenu.OptionSelected = function(cmenuself, option, text)
-                print(option, text)
-                if(text=="Add Child") then
 
-                elseif(text=="Recolor") then 
-                    print("wassup???")
-                    local dframe = vgui.Create("DFrame")
-                    local colorpicker = vgui.Create("DColorCombo", dframe)
-                    dframe:SizeToChildren(true,true)
-                    dframe:MakePopup()
-                    //colorpicker:SetColor(cat.color)
-                end
-            end
-            cmenu:Open()
-        end
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].DoRightClick = menuhandler
         stack[1] = cat
         while (#stack>0) do
             local cur = stack[1]
@@ -485,25 +526,14 @@ function PANEL:PopulateCatagoriesCreate(catagories)
                     self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.name]:AddNode(child.name, "materials/catagory_icon.png")
                     self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].Icon:SetImageColor(child.color)
                     self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].overrideable = false
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].DoRightClick = function(node, button)
-                        local cmenu = DermaMenu(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name])
-                        cmenu:AddOption("Add Child")
-                        cmenu:AddOption("Recolor")
-                        cmenu.OptionSelected = function(option, text)
-                            if(text=="Add Child") then
-
-                            elseif(text=="Recolor") then 
-                                local colorpicker = vgui.Create("DColorCombo")
-                                colorpicker:SetColor(child.color)
-                            end
-                        end
-                        cmenu:Open()
-                    end
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].DoRightClick = menuhandler
                 end
             end
         end
     end
 end
+
+
 
 function PANEL:Paint(width, height)
     draw.RoundedBox(5, 0, 0, width, height, COLORS.base)

@@ -50,8 +50,8 @@ function GZT_LOADER.LoadCatagories(gm, def)
     end
 
     GZT_CATAGORYDEF[gm] = def
-    print("CATAGORY DEF WHEN LOADING.. ")
-    PrintTable(GZT_CATAGORYDEF)
+    //print("CATAGORY DEF WHEN LOADING.. ")
+    //PrintTable(GZT_CATAGORYDEF)
 end
 
 function GZT_LOADER.LoadZoneDef(map, def)
