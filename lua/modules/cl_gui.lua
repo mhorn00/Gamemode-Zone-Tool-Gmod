@@ -62,7 +62,6 @@ function PANEL:AddTopbar()
         draw.RoundedBoxEx(5, 0, 0, width, height, Color(100,100,100,255), true, true, false, false)
     end
     self.topbar.OnMousePressed = function(topbar)
-        print("dragging")
         self.topbar.isDragging = true
         local x,y = self:GetPos()
         self.topbar.clickPos = {gui.MouseX()-x, gui.MouseY()-y}
@@ -119,6 +118,11 @@ function PANEL:AddCreateMode()
     self.basePanel.baseModePanel.createPanelBase.gamemodeSelect = vgui.Create("DComboBox", self.basePanel.baseModePanel.createPanelBase)
     self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:DockMargin(0,0,500,0)
     self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:Dock(TOP)
+    self.basePanel.baseModePanel.createPanelBase.saveButton = vgui.Create("DButton", self.basePanel.baseModePanel.createPanelBase)
+    self.basePanel.baseModePanel.createPanelBase.saveButton.DoClick = function()
+        self:OutputLayout()
+    end
+    self.basePanel.baseModePanel.createPanelBase.saveButton:Dock(TOP)
     for i,gm in pairs(engine.GetGamemodes()) do
         self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:AddChoice(gm.name)
     end
@@ -459,14 +463,23 @@ function menuhandler(node, button)
         node.Icon:SetImageColor(newcolor)
     end    
     cmenu:AddOption("Rename")
+    cmenu:AddOption("Delete")
     cmenu.OptionSelected = function(menu, option, text)
         if(text=="Add Child") then
             local newCat = node:AddNode("New Catagory", "materials/catagory_icon.png")
             newCat.DoRightClick = menuhandler
+            node:SetExpanded(true)
         elseif(text=="Rename") then
+            if(GZT_PANEL.currentlyediting) then
+                GZT_PANEL.currentlyediting.Label:Show()
+                GZT_PANEL.currentlyediting.textentry:Remove()
+            end
+            GZT_PANEL.currentlyediting = node
             node.Label:Hide()
             node.originalname = node.Label:GetText()
             node.textentry = vgui.Create("DTextEntry", node)
+            --TODO: make text entry alphanumeric (NO UNDERSCORE)
+            node.textentry:RequestFocus()
             node.textentry:StretchToParent(38, nil, nil, nil)
             node.textentry:SetTall(node:GetLineHeight())
             local w,h = node.Label:GetTextSize() 
@@ -493,9 +506,50 @@ function menuhandler(node, button)
                     return
                 end 
             end
+            node.textentry.OnFocusChanged = function(textentry, gained)
+                if (!gained) then
+                    node.Label:SetText(node.originalname)
+                    textentry:Remove()
+                    node.Label:Show()
+                end
+            end
+        elseif(text=="Delete") then
+            for k,v in pairs(node:GetChildren()) do
+                if(v.ClassName=="DTree_Node") then
+                    GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[v.Label:GetText()] = nil 
+                end
+            end
+            node:Remove()
         end
     end
     cmenu:Open()
+end
+
+function receiveHandler(node, tblDropped, isDropped, menuIndex, mouseX, mouseY)
+    if(isDropped) then
+        for k,v in pairs(tblDropped) do
+            if(v:GetName()=="DTree_Node" && v != node && !IsExtendedChild(v,node)) then
+                print("doin dis doe o_o")
+                v:SetParent(nil)
+                if(!node.ChildNodes) then
+                    node.ChildNodes:CreateChildNodes()
+                end
+                v:SetParent(node.ChildNodes)
+                node.ChildNodes:Add(v)
+                node:GetRoot():InvalidateLayout(true)
+                
+            end
+        end
+        node:GetRoot().highlighted.Label:SetTextColor(Color(0,0,0,255))
+    else
+        if(node:GetRoot().highlighted) then
+            node:GetRoot().highlighted.Label:SetTextColor(Color(0,0,0,255))
+        end
+        node:GetRoot().highlighted = node
+        node:SetPaintBackground(true)
+        node:SetBackgroundColor(Color(0,255,0,255))
+        node.Label:SetTextColor(Color(255,100,100,255))
+    end
 end
 
 function PANEL:PopulateCatagoriesCreate(catagories)
@@ -512,20 +566,23 @@ function PANEL:PopulateCatagoriesCreate(catagories)
         local stack = {} --useing stack based search rather than recursion bc i dont like recursion =)
         self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView:AddNode(cat.name, "materials/catagory_icon.png")
         self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].contextmenu = DermaMenu(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name])
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].Icon:SetImageColor(cat.color)
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].Icon:SetImageColor(Color(0,0,0,255))
         self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].overrideable = false
-
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name]:Droppable("nodereceiver")
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name]:Receiver("nodereceiver", receiveHandler, {})
         self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].DoRightClick = menuhandler
         stack[1] = cat
         while (#stack>0) do
-            local cur = stack[1]
-            table.remove(stack, 1)
+            local cur = stack[#stack]
+            table.remove(stack)
             if cur.children && cur.children != {} then
                 for k,child in pairs(cur.children) do
                     stack[#stack+1] = child
                     self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.name]:AddNode(child.name, "materials/catagory_icon.png")
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].Icon:SetImageColor(child.color)
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].Icon:SetImageColor(Color(0,0,0,255))
                     self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].overrideable = false
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name]:Droppable("nodereceiver")
+                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name]:Receiver("nodereceiver", receiveHandler, {})
                     self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].DoRightClick = menuhandler
                 end
             end
@@ -533,7 +590,23 @@ function PANEL:PopulateCatagoriesCreate(catagories)
     end
 end
 
-
+function IsExtendedChild(parent, child)
+    local stack = {}
+    stack[1] = parent
+    while #stack>0 do
+        local cur = stack[1]
+        table.remove(stack, 1)
+        if cur == child then
+            return true 
+        end
+        if cur.ChildNodes && cur.ChildNodes:GetChildren() && cur.ChildNodes:GetChildren() != {} then
+            for k,child in pairs(cur.ChildNodes:GetChildren()) do
+                stack[#stack+1] = child
+            end
+        end
+    end
+    return false
+end
 
 function PANEL:Paint(width, height)
     draw.RoundedBox(5, 0, 0, width, height, COLORS.base)
@@ -557,6 +630,86 @@ function PANEL:Think()
             self:SetPos(math.Clamp(x+offsetx-self.topbar.clickPos[1], 0, ScrW()-self:GetWide()), math.Clamp(y+offsety-self.topbar.clickPos[2],0, ScrH()-self:GetTall()))
         end
 	end
+end
+
+--[[
+    function recurse(node)
+        local out = {}
+        out.children = {}
+        out.name = node:GetName()
+        out.color = node.Icon:GetImageColor()
+        out.color.a = nil
+        for k,v in pairs(node:GetChildren()) do
+            out.children[#out.children + 1] = recurse(v)
+        end
+        return out
+    end
+]]--
+
+
+function PANEL:OutputLayout()
+    local root = self.basePanel.baseModePanel.createPanelBase.catagoryView:Root()
+    local stack = {}
+    local nodeStack = {}
+    local out = {}
+    for _,v in pairs(root.ChildNodes:GetChildren()) do
+        nodeStack={}
+        stack[1] = {v,0,false}
+        local i = 0
+        while #stack>0 do
+            local cur = stack[#stack]
+            nodeStack[#nodeStack+1]={cur,cur[2]}
+            table.remove(stack)
+            if cur[1].ChildNodes && cur[1].ChildNodes:GetChildren() && cur[1].ChildNodes:GetChildren() != {} then
+                i=cur[2]+1
+                for _,child in pairs(cur[1].ChildNodes:GetChildren()) do
+                    stack[#stack+1] = {child,i,child==cur[1].ChildNodes:GetChildren()[#cur[1].ChildNodes:GetChildren()]}
+                end
+            end
+            if(cur && cur[3]) then
+                i=cur[2]-1
+            end
+        end
+        local localOut = {}
+        -- sorry tmrw me this is a mess
+        local previousDepth = {1,-1}
+        local parentStack = {{localOut,previousDepth}}
+        for index,node in pairs(nodeStack) do
+            print(index)
+            local parent = nodeStack[parentStack[#parentStack][2][1]]
+            PrintTable(parentStack)
+            local outContext = parentStack[#parentStack][1]
+            if(!outContext) then
+                outContext={}
+            end
+            table.remove(parentStack)
+            PrintTable(node) // if the current nodes depth level is greater than that of the current parent context, then we have to change parent context to node's and make it a new parent -> add children to it
+            if node[2]>parent[2] then
+                if(!outContext[#outContext].children) then
+                    outContext[#outContext].children = {}
+                end
+                parentStack[#parentStack+1] = {outContext[#outContext].children,{index, node[2]}}
+                table.insert(outContext[#outContext].children,1, {
+                    name=node[1].Label:GetText(), 
+                    color={
+                        r=node[1].Icon:GetImageColor().r,
+                        g=node[1].Icon:GetImageColor().g,
+                        b=node[1].Icon:GetImageColor().b
+                    }
+                })
+            else
+                print(outContext[#outContext])
+                table.insert(outContext[#outContext].children,1, {
+                    name=node[1].Label:GetText(), 
+                    color={
+                        r=node[1].Icon:GetImageColor().r,
+                        g=node[1].Icon:GetImageColor().g,
+                        b=node[1].Icon:GetImageColor().b
+                    }
+                })
+            end
+        end 
+    end
 end
 
 concommand.Add("gzt_hide_gui", function()
