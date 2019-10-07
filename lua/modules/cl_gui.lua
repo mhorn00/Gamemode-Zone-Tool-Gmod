@@ -127,7 +127,7 @@ function PANEL:AddCreateMode()
         self.basePanel.baseModePanel.createPanelBase.gamemodeSelect:AddChoice(gm.name)
     end
     self.basePanel.baseModePanel.createPanelBase.gamemodeSelect.OnSelect = function(other_self, index, value, data)
-        self:PopulateCatagoriesCreate(self.CatagoryList[value])
+        self:CMPopulateCatagories(self.CatagoryList[value])
     end
 
     self.basePanel.baseModePanel.createPanelBase.catagoryView = vgui.Create("DTree", self.basePanel.baseModePanel.createPanelBase)
@@ -452,97 +452,110 @@ function checkNameAvailability(name)
     return nil
 end
 
-function menuhandler(node, button)     
-    local cmenu = DermaMenu(node)
-    cmenu:AddOption("Add Child")
-    local colorsub, coloroption = cmenu:AddSubMenu("Recolor", function()
-        return
-    end)
-    colorsub.colorcombo = vgui.Create("DColorCombo", colorsub)
-    colorsub.colorcombo.OnValueChanged = function(colorsubmenu, newcolor)
-        node.Icon:SetImageColor(newcolor)
-    end    
-    cmenu:AddOption("Rename")
-    cmenu:AddOption("Delete")
-    cmenu.OptionSelected = function(menu, option, text)
-        if(text=="Add Child") then
-            local newCat = node:AddNode("New Catagory", "materials/catagory_icon.png")
-            newCat.DoRightClick = menuhandler
-            node:SetExpanded(true)
-        elseif(text=="Rename") then
-            if(GZT_PANEL.currentlyediting) then
-                GZT_PANEL.currentlyediting.Label:Show()
-                GZT_PANEL.currentlyediting.textentry:Remove()
-            end
-            GZT_PANEL.currentlyediting = node
-            node.Label:Hide()
-            node.originalname = node.Label:GetText()
-            node.textentry = vgui.Create("DTextEntry", node)
-            --TODO: make text entry alphanumeric (NO UNDERSCORE)
-            node.textentry:RequestFocus()
-            node.textentry:StretchToParent(38, nil, nil, nil)
-            node.textentry:SetTall(node:GetLineHeight())
-            local w,h = node.Label:GetTextSize() 
-            node.textentry:SetWide(w+15)
-            node.textentry:SetText(node:GetText())
-            node.textentry.OnChange = function(textentry)
-                if(checkNameAvailability(textentry:GetText()) && checkNameAvailability(textentry:GetText()) != node) then
-                    node.textentry:SetTextColor(Color(255,0,0,255))
-                else
-                    node.textentry:SetTextColor(Color(0,0,0,255))
-                end
-                node.Label:SetText(textentry:GetText())
-                local w,h = node.Label:GetTextSize() 
-                textentry:SetWide(w+15)
-            end
-            node.textentry.OnEnter = function(textentry)
-                if !checkNameAvailability(textentry:GetText()) || checkNameAvailability(textentry:GetText()) == node then
-                    node.Label:SetText(textentry:GetText())
-                    GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[node.originalname] = nil
-                    GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[node.Label:GetText()] = node
-                    textentry:Remove()
-                    node.Label:Show()
-                else
-                    return
-                end 
-            end
-            node.textentry.OnFocusChanged = function(textentry, gained)
-                if (!gained) then
-                    node.Label:SetText(node.originalname)
-                    textentry:Remove()
-                    node.Label:Show()
-                end
-            end
-        elseif(text=="Delete") then
-            for k,v in pairs(node:GetChildren()) do
-                if(v.ClassName=="DTree_Node") then
-                    GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[v.Label:GetText()] = nil 
-                end
-            end
-            node:Remove()
-        end
-    end
-    cmenu:Open()
-end
+-- function MenuHandler(node, button)
+--     local cmenu = DermaMenu(node)
+--     cmenu:AddOption("Add Child")
+--     local colorsub, coloroption = cmenu:AddSubMenu("Recolor", function()
+--         return
+--     end)
+--     colorsub.colorcombo = vgui.Create("DColorCombo", colorsub)
+--     colorsub.colorcombo.OnValueChanged = function(colorsubmenu, newcolor)
+--         node.Icon:SetImageColor(newcolor)
+--     end    
+--     cmenu:AddOption("Rename")
+--     cmenu:AddOption("Delete")
+--     cmenu.OptionSelected = function(menu, option, text)
+--         if(text=="Add Child") then
+--             local newName = "New Catagory"
+--             local add = ""
+--             local i = 1
+--             while checkNameAvailability(newName..add) do
+--                 add = " ("..i..")"
+--                 i=i+1
+--             end
+--             local newCat = node:AddNode(newName..add, "materials/catagory_icon.png")
+--             GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[newName..add] = newCat
+--             newCat:Droppable("nodereceiver")
+--             newCat:Receiver("nodereceiver", receiveHandler, {})
+--             newCat.DoRightClick = menuhandler
+--             node:SetExpanded(true)
+--         elseif(text=="Rename") then
+--             if GZT_PANEL.currentlyediting then
+--                 GZT_PANEL.currentlyediting.Label:Show()
+--                 GZT_PANEL.currentlyediting.textentry:Remove()
+--             end
+--             GZT_PANEL.currentlyediting = node
+--             node.Label:Hide()
+--             node.originalname = node.Label:GetText()
+--             node.textentry = vgui.Create("DTextEntry", node)
+--             node.textentry:SetUpdateOnType(true)
+--             --TODO: make text entry alphanumeric
+--             --TODO:Highlight text thats already there
+--             node.textentry:RequestFocus()
+--             node.textentry:StretchToParent(38, nil, nil, nil)
+--             node.textentry:SetTall(node:GetLineHeight())
+--             local w,h = node.Label:GetTextSize() 
+--             node.textentry:SetWide(w+15)
+--             node.textentry:SetText(node:GetText())
+--             --^[a-zA-Z0-9_?!$#@%&]*$
+--             node.textentry.OnChange = function(textentry)
+--                 if(checkNameAvailability(textentry:GetText()) && checkNameAvailability(textentry:GetText()) != node) then
+--                     node.textentry:SetTextColor(Color(255,0,0,255))
+--                 else
+--                     node.textentry:SetTextColor(Color(0,0,0,255))
+--                 end
+--                 node.Label:SetText(textentry:GetText())
+--                 local w,h = node.Label:GetTextSize() 
+--                 textentry:SetWide(w+15)
+--             end
+--             node.textentry.OnEnter = function(textentry)
+--                 if (!checkNameAvailability(textentry:GetText()) || checkNameAvailability(textentry:GetText()) == node) && string.match(textentry:GetText(), "^[a-zA-Z0-9_?!$#@%&\\(\\)\\[\\]]*$") then
+--                     node.Label:SetText(textentry:GetText())
+--                     GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[node.originalname] = nil
+--                     GZT_PANEL.basePMel.baseModePanel.createPanelBase.catagoryView.catNodes[node.Label:GetText()] = node
+--                     textentry:RemovM)
+--                     node.Label:ShowM
+--                 else
+--                     return
+--                 end 
+--             end
+--             node.textentry.OnFocusChanged = function(textentry, gained)
+--                 if (!gained) then
+--                     node.Label:SetText(node.originalname)
+--                     textentry:Remove()
+--                     node.Label:Show()
+--                     GZT_PANEL.currentlyediting = nil
+--                 end
+--             end
+--         elseif(text=="Delete") then
+--             for k,v in pairs(node:GetChildren()) do
+--                 if(v.ClassName=="DTree_Node") then
+--                     GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[v.Label:GetText()] = nil
+--                 end
+--             end
+--             GZT_PANEL.currentlyediting = nil
+--             node:Remove()
+--         end
+--     end
+--     cmenu:Open()
+-- end
 
-function receiveHandler(node, tblDropped, isDropped, menuIndex, mouseX, mouseY)
+function ReceiveHandler(node, tblDropped, isDropped, menuIndex, mouseX, mouseY)
     if(isDropped) then
         for k,v in pairs(tblDropped) do
             if(v:GetName()=="DTree_Node" && v != node && !IsExtendedChild(v,node)) then
-                print("doin dis doe o_o")
                 v:SetParent(nil)
                 if(!node.ChildNodes) then
-                    node.ChildNodes:CreateChildNodes()
+                    node:CreateChildNodes()
                 end
                 v:SetParent(node.ChildNodes)
                 node.ChildNodes:Add(v)
                 node:GetRoot():InvalidateLayout(true)
-                
             end
         end
         node:GetRoot().highlighted.Label:SetTextColor(Color(0,0,0,255))
     else
-        if(node:GetRoot().highlighted) then
+        if(node:GetRoot().highlighted && node:GetRoot().highlighted:GetName()=="DTree_Node") then
             node:GetRoot().highlighted.Label:SetTextColor(Color(0,0,0,255))
         end
         node:GetRoot().highlighted = node
@@ -552,42 +565,47 @@ function receiveHandler(node, tblDropped, isDropped, menuIndex, mouseX, mouseY)
     end
 end
 
-function PANEL:PopulateCatagoriesCreate(catagories)
-    if self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes && self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes != {} then
-        for k,v in pairs(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes) do
-            v:Remove()
-        end 
+function PANEL:CMPopulateCatagories(catagories)
+    if self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes && self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes != {} && self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes["Root"] && self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes["Root"].ChildNodes then
+        for _,node in pairs(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes["Root"].ChildNodes:GetChildren()) do
+            node:Remove()
+        end
+        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes["Root"]:Remove()
     end
-    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes = {}
     if !catagories then
         return
     end
-    for i,cat in pairs(catagories) do
-        local stack = {} --useing stack based search rather than recursion bc i dont like recursion =)
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView:AddNode(cat.name, "materials/catagory_icon.png")
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].contextmenu = DermaMenu(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name])
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].Icon:SetImageColor(Color(0,0,0,255))
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].overrideable = false
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name]:Droppable("nodereceiver")
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name]:Receiver("nodereceiver", receiveHandler, {})
-        self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cat.name].DoRightClick = menuhandler
-        stack[1] = cat
-        while (#stack>0) do
-            local cur = stack[#stack]
-            table.remove(stack)
-            if cur.children && cur.children != {} then
-                for k,child in pairs(cur.children) do
-                    stack[#stack+1] = child
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name] = self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.name]:AddNode(child.name, "materials/catagory_icon.png")
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].Icon:SetImageColor(Color(0,0,0,255))
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].overrideable = false
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name]:Droppable("nodereceiver")
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name]:Receiver("nodereceiver", receiveHandler, {})
-                    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name].DoRightClick = menuhandler
-                end
+    local RootNode = catagories[1]
+    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes = {}
+    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes["Root"] = self.basePanel.baseModePanel.createPanelBase.catagoryView:AddNode("Root", "materials/catagory_icon.png")
+    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes["Root"].Icon:SetImageColor(RootNode.color or Color(255,255,255))
+    self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes["Root"]:Receiver("nodereceiver", ReceiveHandler, {})
+    local stack = {RootNode}
+    while #stack>0 do
+        local cur = stack[#stack]
+        table.remove(stack)
+        if cur.children && cur.children != {} then
+            for _,child in pairs(cur.children) do
+                stack[#stack+1] = child
+                self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[child.name] = self:CMAddCatagoryNode(self.basePanel.baseModePanel.createPanelBase.catagoryView.catNodes[cur.name], child)
             end
         end
     end
+end
+
+function PANEL:CMAddCatagoryNode(parent, newNodeInfo)
+    local node = parent:AddNode(newNodeInfo.name, "materials/catagory_icon.png")
+    node.Icon:SetImageColor(newNodeInfo.color or Color(255,255,255))
+    node.DoRightClick = CMCatagoyMenuHandler
+    node:Droppable("nodereceiver")
+    node:Receiver("nodereceiver", ReceiveHandler, {})
+    return node
+end
+
+function CMCatagoyMenuHandler()
+    --TODO: rewrite menu handler here
+    local cmenu = DermaMenu(node)
+    cmenu:Open()
 end
 
 function IsExtendedChild(parent, child)
@@ -632,21 +650,6 @@ function PANEL:Think()
 	end
 end
 
---[[
-    function recurse(node)
-        local out = {}
-        out.children = {}
-        out.name = node:GetName()
-        out.color = node.Icon:GetImageColor()
-        out.color.a = nil
-        for k,v in pairs(node:GetChildren()) do
-            out.children[#out.children + 1] = recurse(v)
-        end
-        return out
-    end
-]]--
-
-
 function PANEL:OutputLayout()
     local root = self.basePanel.baseModePanel.createPanelBase.catagoryView:Root()
     local stack = {}
@@ -658,7 +661,7 @@ function PANEL:OutputLayout()
         local i = 0
         while #stack>0 do
             local cur = stack[#stack]
-            nodeStack[#nodeStack+1]={cur,cur[2]}
+            nodeStack[#nodeStack+1]={node=cur[1],depth=cur[2]}
             table.remove(stack)
             if cur[1].ChildNodes && cur[1].ChildNodes:GetChildren() && cur[1].ChildNodes:GetChildren() != {} then
                 i=cur[2]+1
@@ -671,44 +674,33 @@ function PANEL:OutputLayout()
             end
         end
         local localOut = {}
-        -- sorry tmrw me this is a mess
-        local previousDepth = {1,-1}
-        local parentStack = {{localOut,previousDepth}}
-        for index,node in pairs(nodeStack) do
-            print(index)
-            local parent = nodeStack[parentStack[#parentStack][2][1]]
-            PrintTable(parentStack)
-            local outContext = parentStack[#parentStack][1]
-            if(!outContext) then
-                outContext={}
-            end
-            table.remove(parentStack)
-            PrintTable(node) // if the current nodes depth level is greater than that of the current parent context, then we have to change parent context to node's and make it a new parent -> add children to it
-            if node[2]>parent[2] then
-                if(!outContext[#outContext].children) then
-                    outContext[#outContext].children = {}
+        local parentStack = {{node=nil, context=localOut}}
+        while #nodeStack>0 do
+            local child = nodeStack[1]
+            table.remove(nodeStack, 1)
+            local parent = parentStack[#parentStack]
+            if(parent.node!=nil && parent.node.depth == child.depth) then
+                table.remove(parentStack)
+                parent = parentStack[#parentStack]
+            elseif parent.node!=nil && parent.node.depth > child.depth then
+                for i=1,(parent.node.depth-child.depth)+1 do
+                    table.remove(parentStack)
                 end
-                parentStack[#parentStack+1] = {outContext[#outContext].children,{index, node[2]}}
-                table.insert(outContext[#outContext].children,1, {
-                    name=node[1].Label:GetText(), 
-                    color={
-                        r=node[1].Icon:GetImageColor().r,
-                        g=node[1].Icon:GetImageColor().g,
-                        b=node[1].Icon:GetImageColor().b
-                    }
-                })
-            else
-                print(outContext[#outContext])
-                table.insert(outContext[#outContext].children,1, {
-                    name=node[1].Label:GetText(), 
-                    color={
-                        r=node[1].Icon:GetImageColor().r,
-                        g=node[1].Icon:GetImageColor().g,
-                        b=node[1].Icon:GetImageColor().b
-                    }
-                })
+                parent = parentStack[#parentStack]
             end
-        end 
+            table.insert(parent.context, 1, {
+                name=child.node.Label:GetText(), 
+                color={
+                    r=child.node.Icon:GetImageColor().r,
+                    g=child.node.Icon:GetImageColor().g,
+                    b=child.node.Icon:GetImageColor().b
+                    },
+                children={}
+            })
+            if(child.node.ChildNodes && #child.node.ChildNodes:GetChildren()!=0) then
+                parentStack[#parentStack+1] = {node=child, context=parent.context[1].children}
+            end
+        end
     end
 end
 
