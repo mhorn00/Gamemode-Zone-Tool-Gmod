@@ -734,23 +734,46 @@ function PANEL:OutputLayout()
     self:PrintOutput(out)
 end
 
+function recTest(e)
+    if(e!=0)then
+        print(e-1)
+        return recTest(e-1)
+    end
+end
+
 function PANEL:PrintOutput(nodesTbl)
+    local prettyout = "GZT_CATDEF = {\n"
     local stack = {{node=nodesTbl[1], d=0}}
     local i = 0
     while #stack>0 do
         local cur = stack[#stack]
         table.remove(stack)
-        print(cur.node.name, cur.d)
-        if cur.node.children != {} then
+        //
+        local indt = ""
+        for d=1,cur.d do
+            indt=indt.."\t"
+        end
+        prettyout=prettyout..indt.."{\n"
+        prettyout=prettyout..indt.."name=\""..cur.node.name.."\",\n"
+        prettyout=prettyout..indt.."color={\n"..indt.."\tr="..cur.node.color.r..",\n"..indt.."\tg="..cur.node.color.g..",\n"..indt.."\tb="..cur.node.color.b.."\n"..indt.."},\n"
+        prettyout=prettyout..indt.."children={\n"
+        if #cur.node.children != 0 then
             i = cur.d + 1
-            for _,child in pairs(cur.node.children) do
+            for d=1,cur.d do
+                prettyout=prettyout.."\t"
+            end
+            prettyout=prettyout.."=======\n"
+            -- for _,child in pairs(cur.node.children) do
+            for cIndex = #cur.node.children, 1, -1 do
+                local child = cur.node.children[cIndex]
                 stack[#stack+1] = {node=child, d=i}
             end
             i = cur.d - 1
         end
     end
+    print(prettyout)
 end
-print(tostring(function() return "hi" end))
+
 local OriginalDragNDropPaintHook = hook.GetTable()["DrawOverlay"]["DragNDropPaint"]
 function EditedDragNDropPaintHook()
 
