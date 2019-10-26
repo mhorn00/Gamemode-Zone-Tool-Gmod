@@ -734,44 +734,55 @@ function PANEL:OutputLayout()
     self:PrintOutput(out)
 end
 
-function recTest(e)
-    if(e!=0)then
-        print(e-1)
-        return recTest(e-1)
+function indt(i)
+    local ret = ""
+    for j = 1,i do
+        ret = ret .. "\t"
     end
+    return ret
 end
 
 function PANEL:PrintOutput(nodesTbl)
-    local prettyout = "GZT_CATDEF = {\n"
-    local stack = {{node=nodesTbl[1], d=0}}
-    local i = 0
+    local out = "GZT_CATDEF = {\n"
+    local stack = {{node=nodesTbl[1]}}
+    local bracketStack = {#stack[1].node.children}
     while #stack>0 do
         local cur = stack[#stack]
         table.remove(stack)
-        //
-        local indt = ""
-        for d=1,cur.d do
-            indt=indt.."\t"
+        for k = 1, #bracketStack do
+            bracketStack[k] = bracketStack[k] + #cur.node.children
         end
-        prettyout=prettyout..indt.."{\n"
-        prettyout=prettyout..indt.."name=\""..cur.node.name.."\",\n"
-        prettyout=prettyout..indt.."color={\n"..indt.."\tr="..cur.node.color.r..",\n"..indt.."\tg="..cur.node.color.g..",\n"..indt.."\tb="..cur.node.color.b.."\n"..indt.."},\n"
-        prettyout=prettyout..indt.."children={\n"
+        local indts = #bracketStack*2
+        out = out..indt(indts-1).."{\n"
+        out = out..indt(indts).."name=\""..cur.node.name.."\",\n"
+        out = out..indt(indts).."color={".."r="..cur.node.color.r..",".."g="..cur.node.color.g..",".."b="..cur.node.color.b.."},\n"
+        out = out..indt(indts).. (#cur.node.children!=0 and "children={\n" or "children={")
+        bracketStack[#bracketStack+1] = #cur.node.children+1
         if #cur.node.children != 0 then
-            i = cur.d + 1
-            for d=1,cur.d do
-                prettyout=prettyout.."\t"
-            end
-            prettyout=prettyout.."=======\n"
-            -- for _,child in pairs(cur.node.children) do
             for cIndex = #cur.node.children, 1, -1 do
-                local child = cur.node.children[cIndex]
-                stack[#stack+1] = {node=child, d=i}
+                stack[#stack+1] = {node=cur.node.children[cIndex]}
             end
-            i = cur.d - 1
+        end
+        --Decrement the everything in the bracket stack
+        for i = 1, #bracketStack do
+            bracketStack[i] = bracketStack[i]-1
+        end
+        local whileIter = 0
+        while (bracketStack[#bracketStack] == 0) do
+            if #cur.node.children == 0 && whileIter == 0 then
+                --close the empty children then close the object
+                out = out.."}\n"..indt(indts-1).."},\n"
+            else
+                --close the children then the object
+                out = out..indt(indts-(2*whileIter)).."}\n"..indt(indts-((2*whileIter)+1)).."},\n"
+            end
+            whileIter = whileIter+1
+            table.remove(bracketStack)
         end
     end
-    print(prettyout)
+    out=out.."}"
+    print(out)
+    file.Write("TESTOUT.txt", out)
 end
 
 local OriginalDragNDropPaintHook = hook.GetTable()["DrawOverlay"]["DragNDropPaint"]
