@@ -50,6 +50,7 @@ if(SERVER) then
 	util.AddNetworkString("SetToolMode")
 	net.Receive("playerPaused", function(len, ply)
 		if (IsValid(ply) and ply:IsPlayer()) then
+			-- print(ply:GetName() .. " paused")
 			PausedPlayers[ply:AccountID()] = true
 			local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 			toolInst.KeyCreationQueue = {}
@@ -59,6 +60,7 @@ if(SERVER) then
 
 	net.Receive("playerUnpaused", function(len, ply)
 		if (IsValid(ply) and ply:IsPlayer()) then
+			-- print(ply:GetName() .. " UNPAUSED")
 			PausedPlayers[ply:AccountID()] = nil
 			local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 			toolInst.KeyCreationQueue = {}
@@ -80,11 +82,13 @@ if(SERVER) then
 
 	net.Receive("PlayerIsHovering", function(len, ply)
 		if(HoveringPlayers[ply]==true) then
+			-- print(ply:GetName() .. " not hovering ")
 			HoveringPlayers[ply] = nil
 			local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 			toolInst.KeyCreationQueue = {}
 			toolInst.KeyExecutionQueue = {}
 		else
+			-- print(ply:GetName() .. " HOVERING ")
 			HoveringPlayers[ply] = true
 		end
 	end)
@@ -647,7 +651,9 @@ function TOOL:DrawToolScreen(width, height)
 		draw.SimpleText( math.Round(self.CurrentBox.MaxBound.z,2), "DermaLarge", width / 1.35, height / 1.5, Color( 200, 200, 200 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 	end
 	if self:GetToolMode()=="Create" then
-		draw.SimpleText(self.GrabMagnitude, "DermaLarge", width/2, height/1.1, Color( 200, 200, 200, 200 ),TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		if(self.currentCatagory != nil  && self.currentCatagory.Label != nil ) then
+			draw.SimpleText(self.currentCatagory.Label:GetText(), "DermaLarge", width/2, height/1.1, Color( 200, 200, 200, 200 ),TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		end
 	end
 end
 --local toolInst = self:GetActiveWeapon():GetTable().Tool.gzt_zonetool
@@ -706,4 +712,4 @@ if CLIENT then
 	GZT_ZONETOOL = TOOL
 end
 
-include("modules/cl_gui.lua")
+include("modules/cl_gui/gui.lua")

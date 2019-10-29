@@ -29,3 +29,22 @@ function GZT_LOADER.LoadZoneDef(map, def)
     end
     GZT_ZONEDEFS[map] = def
 end
+
+-- function GM:PreGamemodeLoaded()
+
+-- end
+
+-- {
+--     {name="Zone 1",
+--     type="Catagory",
+--     OnEnter="OnEnter"},
+-- }
+-- GZT_FUNCTIONS[type][OnEnter]
+
+-- GZT_FUNCTIONS = {
+--     Catagory = {
+--         OnEnter = function(zone, ply, pos)
+
+--         end
+--     }
+-- }
