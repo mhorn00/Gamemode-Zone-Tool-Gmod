@@ -4,9 +4,8 @@ if SERVER then return end
 local PANEL = {}
 
 function PANEL:Init()    
-    self:DockPadding(10, 20, 10, 20)
-    self:Dock(FILL)
-    self:InvalidateParent(true)
+
+    -- self:InvalidateParent(true)
 
     self.gamemodeSelect = vgui.Create("DComboBox", self)
     self.gamemodeSelect:DockMargin(0,0,500,0)
@@ -21,10 +20,10 @@ function PANEL:Init()
         self.gamemodeSelect:AddChoice(gm.name)
     end
     self.gamemodeSelect.OnSelect = function(other_self, index, value, data)
-        self:CMPopulateCatagories(self.CatagoryList[value])
+        self:CMPopulateCatagories(GZT_PANEL.CatagoryList[value])
     end
-    self.catViewScroll = vgui.Create("DHorizontalScroller", self.basePanel.baseModePanel.createPanelBase)
-    self.basePanel.baseModePanel.createPanelBase.catViewScroll:DockPadding(0, 0, self.basePanel.baseModePanel.createPanelBase:GetWide()/2, 0)
+    self.catViewScroll = vgui.Create("DHorizontalScroller", self)
+    self.catViewScroll:DockPadding(0, 0, self:GetWide()/2, 0)
     -- self.basePanel.baseModePanel.createPanelBase.catViewScroll:DockMargin(0, 0, self.basePanel.baseModePanel.createPanelBase:GetWide()/2, 0)
     self.catViewScroll:Dock(FILL)
 
@@ -41,7 +40,7 @@ function PANEL:Init()
     end
     self.catViewScroll.catagoryView.OnNodeSelected = function(dtree, selectedNode)
         -- PrintTable(selectedNode)
-        self:GetParent().tool.currentCatagory = self.catViewScroll.catagoryView.catNodes[selectedNode.Label:GetText()]
+        GZT_ZONETOOL.currentCatagory = self.catViewScroll.catagoryView.catNodes[selectedNode.Label:GetText()]
     end
 end
 
@@ -82,7 +81,7 @@ function CMenuAddCurrentZone(self, node, currentbox)
     if(currentbox.MinBound != nil && currentbox.MaxBound != nil) then
         local name, node = self:CMAddZoneNode(node, currentbox)
         node.DoRightClick = CMNodeMenuHandler
-        self.basePanel.baseModePanel.createPanelBase.catViewScroll.catagoryView.zoneNodes[name] = node 
+        self.catViewScroll.catagoryView.zoneNodes[name] = node 
         -- print("currentbox b4 catagory ".. currentbox)
         currentbox.catagory = node.Label:GetName()
     end

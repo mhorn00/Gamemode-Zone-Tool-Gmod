@@ -5,70 +5,13 @@ if SERVER then return end
 local PANEL = {}
 
 function PANEL:Init()
-    --Sidebar
-
-
     self:AddModeSelect()
-    --self:AddSidebarBrowser()
-end
-
-function PANEL:AddSidebarBrowser()
-    --base panel for browser
-    self.sidebarBrowserBase = vgui.Create("DPanel", self)
-    self.sidebarBrowserBase:SetWide(self:GetWide())
-    self.sidebarBrowserBase:Dock(FILL)
-    self.sidebarBrowserBase:SetBackgroundColor(COLORS.base)
-
-    --Tabs
-    self.sidebarBrowserBase.tabs = vgui.Create("DPanel", self.sidebarBrowserBase)
-    self.sidebarBrowserBase.tabs:Dock(TOP)
-    self.sidebarBrowserBase.tabs:SetWide(self.sidebarBrowserBase:GetWide())
-    
-    --File view tab
-    self.sidebarBrowserBase.tabs.fileTab = vgui.Create("DButton", self.sidebarBrowserBase.tabs)
-    self.sidebarBrowserBase.tabs.fileTab:Dock(LEFT)
-    self.sidebarBrowserBase.tabs.fileTab:SetWide((self.sidebarBrowserBase.tabs:GetWide()/2)+1)
-    self.sidebarBrowserBase.tabs.fileTab:SetText("File View")
-    self.sidebarBrowserBase.tabs.fileTab:SetTextColor(Color(0,0,0,255))
-    self.sidebarBrowserBase.tabs.fileTab.DoClick = function(tab)
-        self:showSidebarFileBrowser()
-    end
-    self.sidebarBrowserBase.tabs.fileTab.Paint = function(tab,w,h)
-        if self.sidebarBrowserBase.tabs.fileTab.isSelected then
-            surface.SetDrawColor(90, 90, 90, 255)
-        else
-            surface.SetDrawColor(130, 130, 130, 255)
-        end
-        surface.DrawRect(0, 0, w, h)
-    end
-
-    --Catagory view tab
-    self.sidebarBrowserBase.tabs.catTab = vgui.Create("DButton", self.sidebarBrowserBase.tabs)
-    self.sidebarBrowserBase.tabs.catTab:Dock(RIGHT)
-    self.sidebarBrowserBase.tabs.catTab:SetWide(self.sidebarBrowserBase.tabs:GetWide()/2)
-    self.sidebarBrowserBase.tabs.catTab:SetText("Catagory View")
-    self.sidebarBrowserBase.tabs.catTab:SetTextColor(Color(0,0,0,255))
-    self.sidebarBrowserBase.tabs.catTab.DoClick = function(tab)
-        self:showSidebarCatagoryBrowser()
-    end
-    self.sidebarBrowserBase.tabs.catTab.Paint = function(tab,w,h)
-        if self.sidebarBrowserBase.tabs.catTab.isSelected then
-            surface.SetDrawColor(90, 90, 90, 255)
-        else
-            surface.SetDrawColor(130, 130, 130, 255)
-        end
-        surface.DrawRect(0, 0, w, h)
-    end
-
-    -- self:AddSidebarFileBrowser()
-    -- self:AddSidebarCatagoryBrowser()
 end
 
 function PANEL:AddModeSelect()
     --Mode select
    self.modeSelect = vgui.Create("DPanel",self)
-   self.modeSelect:SetTall(self.basePanel.sidebarPanel:GetTall()/3.5)
-   self.modeSelect:Dock(TOP)
+   self.modeSelect:Dock(FILL)
 
     --Mode List Title 
    self.modeSelect.modeSelectTitle = vgui.Create("DLabel",self.modeSelect)
@@ -87,43 +30,57 @@ function PANEL:AddModeSelect()
    self.modeSelect.modeSelectElements:SetBackgroundColor(Color(240,240,240,255))
 end
 
---[[function PANEL:AddSidebarFileBrowser()
-   self.sidebarBrowserBase.fileBrowserBase = vgui.Create("DPanel",self.sidebarBrowserBase)
-   self.sidebarBrowserBase.fileBrowserBase:Dock(FILL)
-   self.sidebarBrowserBase.tabs.fileTab.isSelected = true
-    
-   self.sidebarBrowserBase.fileBrowserBase.tempLabel = vgui.Create("DLabel",self.sidebarBrowserBase.fileBrowserBase)
-   self.sidebarBrowserBase.fileBrowserBase.tempLabel:SetText("FILE VIEW")
-   self.sidebarBrowserBase.fileBrowserBase.tempLabel:SetTextColor(Color(0,0,0,255))
-   self.sidebarBrowserBase.fileBrowserBase.tempLabel:Dock(TOP)
-   self.sidebarBrowserBase.fileBrowserBase.tempLabel:SetContentAlignment(5)
+function PANEL:SelectMode(mode)
+    self.CurrentMode = mode
+    GZT_ZONETOOL:SetToolMode(mode)
+    PrintTable(self:GetParent().baseModePanel:GetChildren())
+    for k,v in pairs(self:GetParent().baseModePanel:GetChildren()) do
+        if(v:GetName()==mode) then
+            if(v.OnSelect) then
+                v:OnSelect()
+            end
+            v:Show()
+        else
+            if(v:GetDock()==FILL) then
+                print(v)
+                v:Hide()
+            end
+        end
+    end
 end
 
-function PANEL:AddSidebarCatagoryBrowser()
-   self.sidebarBrowserBase.catBrowserBase = vgui.Create("DPanel",self.sidebarBrowserBase)
-   self.sidebarBrowserBase.catBrowserBase:Dock(FILL)
-   self.sidebarBrowserBase.catBrowserBase:Hide()
-   self.sidebarBrowserBase.tabs.catTab.isSelected = false
-
-   self.sidebarBrowserBase.catBrowserBase.tempLabel = vgui.Create("DLabel",self.sidebarBrowserBase.catBrowserBase)
-   self.sidebarBrowserBase.catBrowserBase.tempLabel:SetText("CATAGORY VIEW")
-   self.sidebarBrowserBase.catBrowserBase.tempLabel:SetTextColor(Color(0,0,0,255))
-   self.sidebarBrowserBase.catBrowserBase.tempLabel:Dock(TOP)
-   self.sidebarBrowserBase.catBrowserBase.tempLabel:SetContentAlignment(5)
+function PANEL:PopulateModeList()
+    if self.modeSelect.modeSelectElements.populated then return end
+    self.modeSelect.modeSelectElements.modeContainer = {}
+    for k,v in pairs(GZT_ZONETOOL.ModeList) do
+        if k==1 then continue end
+        self.modeSelect.modeSelectElements.modeContainer[k] = vgui.Create("DPanel", self.modeSelect.modeSelectElements)
+        self.modeSelect.modeSelectElements.modeContainer[k]:Dock(TOP)
+        self.modeSelect.modeSelectElements.modeContainer[k]:DockPadding(5, 0, 5, 0)
+        self.modeSelect.modeSelectElements.modeContainer[k]:SetTall(self.modeSelect.modeSelectElements:GetTall()/1.4)
+        self.modeSelect.modeSelectElements.modeContainer[k].Paint = function(self,w,h)
+            if k%2==1 then
+                surface.SetDrawColor(200, 200, 200, 255)
+            else
+                surface.SetDrawColor(240, 240, 240, 255)
+            end
+            if self.label:IsHovered() then
+                surface.SetDrawColor(116, 152, 207, 255)
+            end
+            surface.DrawRect(0, 0, w, h)
+        end
+        self.modeSelect.modeSelectElements.modeContainer[k].label = vgui.Create("DLabel", self.modeSelect.modeSelectElements.modeContainer[k], v)
+        self.modeSelect.modeSelectElements.modeContainer[k].label:SetText(v)
+        self.modeSelect.modeSelectElements.modeContainer[k].label:Dock(FILL)
+        self.modeSelect.modeSelectElements.modeContainer[k]:SetTall(self.modeSelect.modeSelectElements.modeContainer[k]:GetTall())
+        self.modeSelect.modeSelectElements.modeContainer[k].label:SetTextColor(Color(0,0,0,255))
+        self.modeSelect.modeSelectElements.modeContainer[k].label:SetMouseInputEnabled(true)
+        self.modeSelect.modeSelectElements.modeContainer[k].label.DoClick = function(label)
+            self:SelectMode(GZT_ZONETOOL.ModeList[k])
+        end
+    end
+    self.modeSelect.modeSelectElements.populated=true
 end
 
-function PANEL:showSidebarFileBrowser()
-   self.sidebarBrowserBase.fileBrowserBase:Show()
-   self.sidebarBrowserBase.catBrowserBase:Hide()
-   self.sidebarBrowserBase.tabs.fileTab.isSelected = true
-   self.sidebarBrowserBase.tabs.catTab.isSelected = false
-end
-
-function PANEL:showSidebarCatagoryBrowser()
-   self.sidebarBrowserBase.catBrowserBase:Show()
-   self.sidebarBrowserBase.fileBrowserBase:Hide()
-   self.sidebarBrowserBase.tabs.catTab.isSelected = true
-   self.sidebarBrowserBase.tabs.fileTab.isSelected = false
-end]]
 
 vgui.Register("gzt_sidebar", PANEL, "DPanel")

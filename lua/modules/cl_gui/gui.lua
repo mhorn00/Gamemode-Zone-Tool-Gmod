@@ -1,6 +1,7 @@
 AddCSLuaFile()
 include("modules/cl_gui/gzt_topbar.lua")
 include("modules/cl_gui/gzt_basemodePanel.lua")
+include("modules/cl_gui/gzt_sidebar.lua")
 if SERVER then 
     util.AddNetworkString("gzt_receivecatagories")
     return 
@@ -35,10 +36,10 @@ end
 
 function PANEL:PopulateUI()
     self:onOpen()
-    self:PopulateModeList()
+    self.basePanel.sidebarPanel:PopulateModeList()
     if(!self.FirstSelected) then
         self.FirstSelected = true
-        self:SelectMode(self.tool:GetToolMode())
+        self.basePanel.sidebarPanel:SelectMode(self.tool:GetToolMode())
     end
 end
 
@@ -53,11 +54,11 @@ function PANEL:Init()
 end
 
 function PANEL:AddSidebar()
-    self.sidebar = vgui.Create("gzt_sidebar", self.basePanel)   
-    self.sidebar:Dock(LEFT)
-    self.sidebar:SetWide(self:GetWide()/6)
-    self.sidebar:SetTall(self:GetTall())
-    self.sidebar:SetBackgroundColor(COLORS.base)
+    self.basePanel.sidebarPanel = vgui.Create("gzt_sidebar", self.basePanel) 
+    self.basePanel.sidebarPanel:Dock(LEFT)
+    self.basePanel.sidebarPanel:SetWide(self:GetWide()/6)
+    self.basePanel.sidebarPanel:SetTall(self:GetTall())
+    self.basePanel.sidebarPanel:SetBackgroundColor(COLORS.base)
 end
 
 function PANEL:AddTopbar()
@@ -67,7 +68,6 @@ function PANEL:AddTopbar()
 end
 
 function PANEL:AddBasePanel()
-    --Base Panel
     self.basePanel = vgui.Create("DPanel", self)
     self.basePanel:SetWide(self:GetWide())
     self.basePanel:SetTall(self:GetTall()*(39/40))
@@ -82,68 +82,6 @@ function PANEL:AddBaseModePanel()
     self.basePanel.baseModePanel:SetTall(self.basePanel:GetTall())
     self.basePanel.baseModePanel:SetBackgroundColor(Color(100,75,75,255))
 end
-
-
-
-
-
-
-
-
-
-
-function PANEL:SelectMode(mode)
-    self.CurrentMode = mode
-    self.tool:SetToolMode(mode)
-    for k,v in pairs(self.basePanel.baseModePanel:GetChildren()) do
-        if(v:GetName()==mode) then
-            if(v.OnSelect) then
-                v:OnSelect()
-            end
-            v:Show()
-        else
-            if(v:GetDock()==FILL) then
-                v:Hide()
-            end
-        end
-    end
-end
-
-function PANEL:PopulateModeList()
-    if self.basePanel.sidebarPanel.modeSelect.modeSelectElements.populated then return end
-    self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer = {}
-    for k,v in pairs(self.tool.ModeList) do
-        if k==1 then continue end
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k] = vgui.Create("DPanel", self.basePanel.sidebarPanel.modeSelect.modeSelectElements)
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:Dock(TOP)
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:DockPadding(5, 0, 5, 0)
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:SetTall(self.basePanel.sidebarPanel.modeSelect.modeSelectElements:GetTall()/1.4)
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].Paint = function(self,w,h)
-            if k%2==1 then
-                surface.SetDrawColor(200, 200, 200, 255)
-            else
-                surface.SetDrawColor(240, 240, 240, 255)
-            end
-            if self.label:IsHovered() then
-                surface.SetDrawColor(116, 152, 207, 255)
-            end
-            surface.DrawRect(0, 0, w, h)
-        end
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label = vgui.Create("DLabel", self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k], v)
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label:SetText(v)
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label:Dock(FILL)
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:SetTall(self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k]:GetTall())
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label:SetTextColor(Color(0,0,0,255))
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label:SetMouseInputEnabled(true)
-        self.basePanel.sidebarPanel.modeSelect.modeSelectElements.modeContainer[k].label.DoClick = function(label)
-            self:SelectMode(GZT_ZONETOOL.ModeList[k])
-        end
-    end
-    self.basePanel.sidebarPanel.modeSelect.modeSelectElements.populated=true
-end
-
-
-
 
 
 function PANEL:Paint(width, height)

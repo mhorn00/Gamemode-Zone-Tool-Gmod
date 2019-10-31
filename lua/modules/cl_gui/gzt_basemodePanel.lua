@@ -7,12 +7,16 @@ if SERVER then return end
 PANEL = {}
 
 function PANEL:Init()
-    self.createMode = vgui.Create("gzt_createPanel", self, "create")
-    self.editMode = vgui.Create("gzt_editPanel", self, "edit")
-    self.prgmMode = vgui.Create("gzt_prgmPanel", self, "program")
+    self.createMode = vgui.Create("gzt_createPanel", self, GZT_ZONETOOL.Modes.Create)
+    self.editMode = vgui.Create("gzt_editPanel", self, GZT_ZONETOOL.Modes.Edit)
+    self.prgmMode = vgui.Create("gzt_prgmPanel", self, GZT_ZONETOOL.Modes.Program)
     self.createMode:Show()
+    self.createMode:Dock(FILL)
+    local x,y = self:GetParent():GetParent():GetPos()
     self.editMode:Hide()
+    self.editMode:Dock(FILL)
     self.prgmMode:Hide()
+    self.prgmMode:Dock(FILL)
 end
 
 function PANEL:changeMode(mode)
