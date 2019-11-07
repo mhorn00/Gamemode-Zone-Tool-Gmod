@@ -94,11 +94,20 @@ if(SERVER) then
 	end)
 
 else // in client
-	net.Receive("SetCurrentBox", function()
-		TOOL.CurrentBox.Ent = net.ReadEntity()
-		TOOL.CurrentBox.MinBound = TOOL.CurrentBox.Ent:GetMinBound()
-		TOOL.CurrentBox.MaxBound = TOOL.CurrentBox.Ent:GetMaxBound()
-	end)
+	-- net.Receive("SetCurrentBox", function()
+	-- 	if(!LocalPlayer():GetActiveWeapon():GetTable().Tool.CurrentBox) then
+	-- 		LocalPlayer():GetActiveWeapon():GetTable().Tool.CurrentBox = {}
+	-- 	end
+	-- 	LocalPlayer():GetActiveWeapon():GetTable().Tool.CurrentBox.Ent = net.ReadEntity()
+	-- 	LocalPlayer():GetActiveWeapon():GetTable().Tool.CurrentBox.MinBound = LocalPlayer():GetActiveWeapon():GetTable().Tool.CurrentBox.Ent:GetMinBound()
+	-- 	LocalPlayer():GetActiveWeapon():GetTable().Tool.CurrentBox.MaxBound = LocalPlayer():GetActiveWeapon():GetTable().Tool.CurrentBox.Ent:GetMaxBound()
+	-- end)
+end
+
+function TOOL:UpdateClientCurrentBox(ply)
+	net.Start("SetCurrentBox")
+		net.WriteEntity(self.CurrentBox.Ent)
+	net.Send(ply)
 end
 
 for k,v in pairs(TOOL.Modes) do
@@ -115,6 +124,16 @@ for k,v in pairs(TOOL.Modes) do
 			GZT_PANEL:SetToolRef(self)
 			GZT_PANEL:PopulateUI()
 		end	
+	end
+end
+
+TOOL["KF"..TOOL.Modes.Create..KEY_T] = function(self, KeyCombo)
+	if !KeyCombo.processed && !KeyCombo.released && SERVER then
+		if self.CurrentBox.Ent:GetDrawFaces() then
+			self.CurrentBox.Ent:SetDrawFaces(false)
+		else
+			self.CurrentBox.Ent:SetDrawFaces(true)
+		end
 	end
 end
 
@@ -160,9 +179,10 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released then
 		if(!IsValid(self.SelectedCorner)) then
 			tr = self:GetOwner():GetEyeTrace()
-			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner") then
-			// set grab state for all corners to true, grabplayer maybe = self:GetOwner()?
+			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner" && !tr.Entity:GetOwner().Grabbed) then
+				// set grab state for all corners to true, grabplayer maybe = self:GetOwner()?
 				self.SelectedCorner = tr.Entity
+				self.SelectedCorner:GetOwner().Grabbed = true
 				self.SelectedCorner:SetColor(Color(0,0,255,255))
 				self.GrabMagnitude=self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
 			end
@@ -178,7 +198,16 @@ TOOL["KF"..TOOL.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 			if(SERVER) then
 				self.SelectedCorner:GetOwner():BuildCorners()
 			end
+			self.SelectedCorner:GetOwner().Grabbed = nil
 			self.SelectedCorner = nil 
+		end
+	end
+end
+
+TOOL["KF"..TOOL.Modes.Create..KEY_M] = function(self, KeyCombo)
+	if !KeyCombo.processed && !KeyCombo.released && SERVER then
+		if IsValid(self.CurrentBox.Ent) then
+			GZT_ZONES:Commit(self.CurrentBox.Ent, self:GetOwner())
 		end
 	end
 end
@@ -199,7 +228,7 @@ end
 
 function TOOL:SetToolMode(mode)
 
-	local toMode = 2 -- defualt to create mode
+	local toMode = 2 // defualt to create mode
 	for i,m in pairs(self.ModeList) do
 		if m==mode then
 			toMode=i
@@ -214,7 +243,6 @@ function TOOL:SetToolMode(mode)
 end
  
 function TOOL:UpdateToolMode()
-	//if(CLIENT) then print(self) end
 	if self:GetOperation() == 0 then
         self:SetOperation(1)
     elseif self:GetOperation() < #self.ModeList - 1 then
@@ -296,6 +324,9 @@ function TOOL:MakeBox() --SERVER ONLY
 		self.CurrentBox.Ent=ents.Create("gzt_zone")
 		self.CurrentBox.Ent:Spawn()
 	end
+	if(!self.CurrentBox.Ent.id) then
+		GZT_ZONES:Push(self.CurrentBox.Ent)
+	end
 	self.CurrentBox.Ent:Setup(self.CurrentBox.MinBound, self.CurrentBox.MaxBound)
 end
 
@@ -305,7 +336,6 @@ function TOOL:DeleteBox()
 		self.CurrentBox.Ent:Remove()
 	end
 end
-
 
 function TOOL:PlayerButtonDown(key, ply)
 	--In this function self refers to the player holding the tool, not the tool itself

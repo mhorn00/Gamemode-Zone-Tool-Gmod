@@ -30,6 +30,12 @@ function GZT_LOADER.LoadZoneDef(map, def)
     GZT_ZONEDEFS[map] = def
 end
 
+function ReloadZonesAfterCleanup()
+    // TODO
+end
+
+hook.Add("PostCleanupMap", "GZT_ReloadZonesAfterCleanup", ReloadZonesAfterCleanup)
+
 -- function GM:PreGamemodeLoaded()
 
 -- end

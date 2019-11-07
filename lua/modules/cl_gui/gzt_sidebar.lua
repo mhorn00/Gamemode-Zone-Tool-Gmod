@@ -42,7 +42,6 @@ function PANEL:SelectMode(mode)
             v:Show()
         else
             if(v:GetDock()==FILL) then
-                print(v)
                 v:Hide()
             end
         end

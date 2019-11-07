@@ -2,6 +2,7 @@ AddCSLuaFile()
 if SERVER then return end
 
 local PANEL = {}
+local selectedCatagoryConVar = CreateConVar("GZT_SelectedCatagory", "Root", FCVAR_USERINFO)
 
 function PANEL:Init()    
 
@@ -11,6 +12,8 @@ function PANEL:Init()
     self.gamemodeSelect:DockMargin(0,0,500,0)
     self.gamemodeSelect:Dock(TOP)
     self.saveButton = vgui.Create("DButton", self)
+    self.saveButton:DockMargin(0,0,500,0)
+    self.saveButton:Dock(TOP)
     self.saveButton:SetText("Save")
     self.saveButton.DoClick = function()
         self:OutputLayout()
@@ -44,6 +47,7 @@ function PANEL:Init()
     end
 end
 
+//TODO: This needs to read from the master list on the server
 function PANEL:CMPopulateCatagories(catagories)
     if self.catViewScroll.catagoryView.catNodes && self.catViewScroll.catagoryView.catNodes != {} && self.catViewScroll.catagoryView.catNodes["Root"] && self.catViewScroll.catagoryView.catNodes["Root"].ChildNodes then
         for _,node in pairs(self.catViewScroll.catagoryView.catNodes["Root"].ChildNodes:GetChildren()) do
@@ -56,10 +60,11 @@ function PANEL:CMPopulateCatagories(catagories)
     end
     local RootNode = catagories[1]
     self.catViewScroll.catagoryView.catNodes = {}
-    self.catViewScroll.catagoryView.catNodes["Root"] = self.basePanel.baseModePanel.createPanelBase.catViewScroll.catagoryView:AddNode("Root", "materials/catagory_icon.png")
+    self.catViewScroll.catagoryView.catNodes["Root"] = self.catViewScroll.catagoryView:AddNode("Root", "materials/catagory_icon.png")
     self.catViewScroll.catagoryView.catNodes["Root"].Icon:SetImageColor(RootNode.color or Color(255,255,255))
     self.catViewScroll.catagoryView.catNodes["Root"]:Receiver("nodereceiver", ReceiveHandler, {})
     self.catViewScroll.catagoryView.catNodes["Root"].DoRightClick = CMCatagoryMenuHandler
+    self.catViewScroll.catagoryView.catNodes["Root"].DoClick = SetPlayerCatagory
     self.catViewScroll.catagoryView.catNodes["Root"].isRoot = true
     
     local stack = {RootNode}
@@ -75,19 +80,32 @@ function PANEL:CMPopulateCatagories(catagories)
     end
 end
 
+function SetPlayerCatagory(node)
+    print(node.Label:GetText())
+    selectedCatagoryConVar:SetString(node.Label:GetText())
+end
+
+function PANEL:CMAddCatagoryNode(parent, newNodeInfo)
+    local node = parent:AddNode(newNodeInfo.name, "materials/catagory_icon.png")
+    node.Icon:SetImageColor(newNodeInfo.color or Color(255,255,255))
+    node.DoClick = SetPlayerCatagory
+    node.DoRightClick = CMCatagoryMenuHandler
+    node:Droppable("nodereceiver")
+    node:Receiver("nodereceiver", ReceiveHandler, {})
+    node.isRoot = false
+    return node
+end
+
 function CMenuAddCurrentZone(self, node, currentbox)
-    -- currentbox = GZT_PANEL.tool.CurrentBox.Ent
-    -- print("CURRENTBOX FIRST " .. currentbox)
     if(currentbox.MinBound != nil && currentbox.MaxBound != nil) then
-        local name, node = self:CMAddZoneNode(node, currentbox)
+        local name, node = CMAddZoneNode(node, currentbox)
         node.DoRightClick = CMNodeMenuHandler
         self.catViewScroll.catagoryView.zoneNodes[name] = node 
-        -- print("currentbox b4 catagory ".. currentbox)
         currentbox.catagory = node.Label:GetName()
     end
 end
 
-function PANEL:CMAddZoneNode(catagory, zone)
+function CMAddZoneNode(catagory, zone)
     local newName = catagory.Label:GetText().." Zone "
     local i = 1
     while !IsZoneNameAvailable(newName..i) do
@@ -95,14 +113,14 @@ function PANEL:CMAddZoneNode(catagory, zone)
     end
     local node = catagory:AddNode(newName..i,"materials/zone_icon.png")
     node.Icon:SetImageColor(Color(0,0,0,255))
+    node:Droppable("nodereceiver")
     node.ent = zone
     catagory:SetExpanded(true)
     return newName..i,node
 end
 
 function IsZoneNameAvailable(name)
-    for k,v in pairs(GZT_PANEL.basePanel.baseModePanel.createPanelBase.catagoryView.zoneNodes) do
-        print(k,name)
+    for k,v in pairs(GZT_PANEL.basePanel.baseModePanel.createMode.catViewScroll.catagoryView.zoneNodes) do
         if k == name then
             return false
         end
@@ -144,20 +162,39 @@ function CMCatagoryMenuHandler(node, button)
     cmenu.colorsub.colorcombo.OnValueChanged = function(colorsubmenu, newcolor)
         node.Icon:SetImageColor(newcolor)
     end
+    if(cut_node) then
+        cmenu:AddOption("Paste")
+    end
     if(!node.isRoot) then
+        cmenu:AddOption("Cut")
+
         cmenu:AddOption("Rename")
         cmenu:AddOption("Delete")
     end
     cmenu.OptionSelected = function(menu, option, text)
         if text == "Add Catagory" then
-            CMMenuAddCatagoryChild(GZT_PANEL, node)
+            CMMenuAddCatagoryChild(GZT_PANEL.basePanel.baseModePanel.createMode, node)
         elseif text=="Add Current Zone" then
-            print(GZT_PANEL.tool)
-            CMenuAddCurrentZone(GZT_PANEL, node, GZT_PANEL.tool.CurrentBox)
+            CMenuAddCurrentZone(GZT_PANEL.basePanel.baseModePanel.createMode, node, GZT_PANEL.tool.CurrentBox)
+        elseif text == "Cut" then
+            node:Hide()
+            node:SetParent(nil)
+            cut_node = node
+            node:GetRoot():InvalidateLayout(true)
+        elseif text == "Paste" then
+            if(!node.ChildNodes) then
+                node:CreateChildNodes()
+            end
+            cut_node:SetParent(node)
+            cut_node:Show()
+            node.ChildNodes:Add(cut_node)
+            node:GetRoot():InvalidateLayout(true)
+
+            cut_node = nil
         elseif text == "Rename" then
-            CMMenuRenameCatagoryNode(GZT_PANEL, node)
+            CMMenuRenameCatagoryNode(GZT_PANEL.basePanel.baseModePanel.createMode, node)
         elseif text == "Delete" then
-            CMMenuDeleteCatagoryNode(GZT_PANEL, node)
+            CMMenuDeleteCatagoryNode(GZT_PANEL.basePanel.baseModePanel.createMode, node)
         end
     end
     cmenu:Open()
@@ -167,16 +204,16 @@ function CMMenuAddCatagoryChild(self, parent)
     local newName = "New Catagory"
     local add = ""
     local i = 1
-    while !IsNameCatagoryAvailable(newName..add) do
+    while !self:IsNameCatagoryAvailable(newName..add) do
         add = " ("..i..")"
         i=i+1
     end
-    self.basePanel.baseModePanel.createPanelBase.catViewScroll.catagoryView.catNodes[newName..add] = self:CMAddCatagoryNode(parent, {name=newName..add})
+    self.catViewScroll.catagoryView.catNodes[newName..add] = self:CMAddCatagoryNode(parent, {name=newName..add})
     parent:SetExpanded(true)
 end
 
 function PANEL:IsNameCatagoryAvailable(name)
-    for k,v in pairs(self.createPanelBase.catagoryView.catNodes) do
+    for k,v in pairs(self.catViewScroll.catagoryView.catNodes) do
         if k == name then
             return false
         end
@@ -218,7 +255,7 @@ function CMMenuRenameCatagoryNode(self, node)
 
     node.textEntry.OnKeyCodeTyped = function(textentry, KeyCode)
         if KeyCode == KEY_ENTER then
-            if (IsNameCatagoryAvailable(textentry:GetText()) || textentry:GetText()==node.oldName) && string.match(textentry:GetText(), "^[a-zA-Z0-9 _!@#$&()"..string.PatternSafe("[]").."]*$")==textentry:GetText() then
+            if (self:IsNameCatagoryAvailable(textentry:GetText()) || textentry:GetText()==node.oldName) && string.match(textentry:GetText(), "^[a-zA-Z0-9 _!@#$&()"..string.PatternSafe("[]").."]*$")==textentry:GetText() then
                 if textentry:GetText() != "" then
                     node.Label:SetText(textentry:GetText())
                 else
@@ -289,7 +326,7 @@ function IsExtendedChild(parent, child)
 end
 
 function PANEL:OutputLayout()
-    local root = self.basePanel.baseModePanel.createPanelBase.catViewScroll.catagoryView.catNodes["Root"]
+    local root = self.catViewScroll.catagoryView.catNodes["Root"]
     local stack = {}
     local nodeStack = {}
     local out = {}
@@ -314,6 +351,9 @@ function PANEL:OutputLayout()
     while #nodeStack>0 do
         local child = nodeStack[1]
         table.remove(nodeStack, 1)
+        if(child.node.ent) then
+            continue
+        end
         local parent = parentStack[#parentStack]
         if(parent.node!=nil && parent.node.depth == child.depth) then
             table.remove(parentStack)
