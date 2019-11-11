@@ -6,10 +6,12 @@ GZT_ZONES = {unmadeZones = {},
 GZT_ZONELIST = { zones = {}}
 GZT_UNMADEZONELIST = { zones = {}}
 
-util.AddNetworkString("RequestZone")
-util.AddNetworkString("GetAllZones")
+util.AddNetworkString("gzt_RequestZone")
+util.AddNetworkString("gzt_GetAllZones")
+util.AddNetworkString("gzt_ZoneCommitSuccessful")
+util.AddNetworkString("gzt_RequestZoneInfo")
 
-net.Receive("RequestZone", function(len,ply)
+net.Receive("gzt_RequestZone", function(len,ply)
     local id = net.ReadString()
     if(GZT_ZONELIST.zones[id]) then
         net.WriteTable(GZT_ZONELIST.zones[id])
@@ -17,18 +19,44 @@ net.Receive("RequestZone", function(len,ply)
     end
 end)
 
-net.Receive("GetAllZones", function(len, ply)
-    net.WriteTable(GZT_ZONELIST.zones)
+net.Receive("gzt_GetAllZones", function(len, ply)
+    net.WriteTable(GZT_ZONES.commitedZones)
     net.Send(ply)
 end)
 
-net.Receive("AddZone", function(len, ply)
+net.Receive("gzt_AddZone", function(len, ply)
     local id = net.ReadString()
     if(GZT_UNMADEZONELIST.zones[id]) then
         local unmadezone = GZT_UNMADEZONELIST.zones[id]
         GZT_UNMADEZONELIST.zones[id] = nil
         GZT_ZONELIST:Push(unmadezone)
     end
+end)
+
+net.Receive("gzt_EditZone", function(len, ply)
+    local id = net.ReadString()
+    ply:GetActiveWeapon():SetMode(ply:GetActiveWeapon().Modes.Edit)
+    ply:GetActiveWeapon().CurrentBox.Ent = nil
+    ply:GetActiveWeapon().CurrentBox.Ent = GZT_ZONES.commitedZones[id]
+end)
+
+net.Receive("gzt_RequestZoneInfo", function(len, ply)
+    local id = net.ReadString()
+    local reqTag = net.ReadString()
+    local callback_string = net.ReadString()
+    local data = nil
+    if(!GZT_ZONELIST[id] || !GZT_ZONELIST[id][reqTag] ) then
+        data = "NULL"
+    else
+        data = GZT_ZONELIST[id][reqTag]
+    end
+    net.Start(callback_string)
+    if(type(data) == "table") then
+        net.WriteTable(data)
+    else
+        net.WriteString(tostring(data))
+    end
+    net.Send(ply)
 end)
 
 local random = math.random
@@ -51,13 +79,21 @@ function GZT_ZONES:Commit(zone, ply)
         local unmadezone = self.unmadeZones[id]
         self.unmadeZones[id] = nil
         self.commitedZones[id]=unmadezone
-
         self.commitedZones[id].catagory = catagory
+        print("sending 2 player success")
+        net.Start("gzt_ZoneCommitSuccessful")
+            net.WriteString(id)
+        net.Send(ply)
+        // network this to client
     else
         print("not in unmade zones ==========")
         print(zone.id)
         PrintTable(self.unmadeZones)
     end
+end
+
+function GZT_ZONES:EditZone(id)
+   
 end
 
 -- function self:Push(zone) 

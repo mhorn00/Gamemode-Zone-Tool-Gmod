@@ -42,13 +42,13 @@ local HoveringPlayers={}
 
 if(SERVER) then
 
-	util.AddNetworkString("playerPaused")
-	util.AddNetworkString("playerUnpaused")
-	util.AddNetworkString("PlayerIsHovering")
-	util.AddNetworkString("SetGrabMag")
-	util.AddNetworkString("SetCurrentBox")
-	util.AddNetworkString("SetToolMode")
-	net.Receive("playerPaused", function(len, ply)
+	util.AddNetworkString("gzt_playerPaused")
+	util.AddNetworkString("gzt_playerUnpaused")
+	util.AddNetworkString("gzt_PlayerIsHovering")
+	util.AddNetworkString("gzt_SetGrabMag")
+	util.AddNetworkString("gzt_SetCurrentBox")
+	util.AddNetworkString("gzt_SetToolMode")
+	net.Receive("gzt_playerPaused", function(len, ply)
 		if (IsValid(ply) and ply:IsPlayer()) then
 			-- print(ply:GetName() .. " paused")
 			PausedPlayers[ply:AccountID()] = true
@@ -58,7 +58,7 @@ if(SERVER) then
 		end
 	end)
 
-	net.Receive("playerUnpaused", function(len, ply)
+	net.Receive("gzt_playerUnpaused", function(len, ply)
 		if (IsValid(ply) and ply:IsPlayer()) then
 			-- print(ply:GetName() .. " UNPAUSED")
 			PausedPlayers[ply:AccountID()] = nil
@@ -68,19 +68,19 @@ if(SERVER) then
 		end
 	end)
 
-	net.Receive("SetGrabMag", function(len, ply)
+	net.Receive("gzt_SetGrabMag", function(len, ply)
 		local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 		toolInst.GrabMagnitude = net.ReadFloat() 
 	end)
 
-	net.Receive("SetToolMode", function(len, ply)
+	net.Receive("gzt_SetToolMode", function(len, ply)
 		if (IsValid(ply) and ply:IsPlayer()) then
 			local toolInst = ply:GetActiveWeapon():GetTable().Tool.gzt_zonetool
 			toolInst:SetOperation(net.ReadInt(len,4))
 		end
 	end)
 
-	net.Receive("PlayerIsHovering", function(len, ply)
+	net.Receive("gzt_PlayerIsHovering", function(len, ply)
 		if(HoveringPlayers[ply]==true) then
 			-- print(ply:GetName() .. " not hovering ")
 			HoveringPlayers[ply] = nil
@@ -105,7 +105,7 @@ else // in client
 end
 
 function TOOL:UpdateClientCurrentBox(ply)
-	net.Start("SetCurrentBox")
+	net.Start("gzt_SetCurrentBox")
 		net.WriteEntity(self.CurrentBox.Ent)
 	net.Send(ply)
 end
@@ -117,12 +117,8 @@ for k,v in pairs(TOOL.Modes) do
 	end
 	TOOL["KF"..v..KEY_H] = function(self, KeyCombo)
 		if !KeyCombo.processed && !KeyCombo.released && CLIENT then
-			if(!GZT_PANEL) then
-				GZT_PANEL = vgui.Create("gzt_gui")
-			end
-			GZT_PANEL:SetVisible(true)
-			GZT_PANEL:SetToolRef(self)
-			GZT_PANEL:PopulateUI()
+			print("trying???")
+			LocalPlayer():ConCommand("gzt_toggle_gui")
 		end	
 	end
 end
@@ -208,6 +204,10 @@ TOOL["KF"..TOOL.Modes.Create..KEY_M] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released && SERVER then
 		if IsValid(self.CurrentBox.Ent) then
 			GZT_ZONES:Commit(self.CurrentBox.Ent, self:GetOwner())
+			self.CurrentBox.Ent:SetDrawFaces(false)
+			self.CurrentBox.MinBound= nil
+			self.CurrentBox.MaxBound= nil
+			self.CurrentBox.Ent = nil
 		end
 	end
 end
@@ -235,7 +235,7 @@ function TOOL:SetToolMode(mode)
 		end
 	end
 	if CLIENT then
-		net.Start("SetToolMode")
+		net.Start("gzt_SetToolMode")
 		net.WriteInt(toMode-1, 4)
 		net.SendToServer()
 	end
@@ -255,32 +255,7 @@ end
 TOOL.HoverStatus = false
 
 function TOOL:Think()
-	if CLIENT then
-		if((vgui.GetHoveredPanel()!=nil)!=self.HoverStatus) then
-			net.Start("PlayerIsHovering")
-			net.SendToServer()
-			self.HoverStatus = !self.HoverStatus
-			if(!self.HoverStatus) then
-				self.KeyCreationQueue = {}
-				self.KeyExecutionQueue = {}
-			end
-		end
-	end
-	if CLIENT && (gui && gui.IsGameUIVisible()) && !self.isPaused then
-		self.isPaused = true
-		net.Start("playerPaused")
-			net.WriteString("")
-		net.SendToServer()
-		self.KeyExecutionQueue = {}
-		self.KeyCreationQueue = {}
-	elseif CLIENT && (gui && !gui.IsGameUIVisible()) && self.isPaused then
-		self.isPaused = false
-		net.Start("playerUnpaused")
-			net.WriteString("")
-		net.SendToServer()
-		self.KeyExecutionQueue = {}
-		self.KeyCreationQueue = {}
-	end
+
 	if ( (gui && !gui.IsGameUIVisible() && vgui.GetHoveredPanel()==nil) || (SERVER && !PausedPlayers[self:GetOwner():AccountID()] && !HoveringPlayers[self:GetOwner()])) then
 		self:ProcessInput()
 	end
@@ -300,14 +275,14 @@ function PlayerBindPress(ply, bind, pressed)
 			if(bind == "invprev") then
 				--TODO:scale amount moved on scroll by how far away the box is
 				tempGM = math.max(tempGM+5, 10)
-				net.Start("SetGrabMag")
+				net.Start("gzt_SetGrabMag")
 				net.WriteFloat(tempGM)
 				net.SendToServer()
 				self.GrabMagnitude=tempGM
 				return true
 			elseif bind == "invnext" then
 				tempGM = math.max(tempGM-5, 10)
-				net.Start("SetGrabMag")
+				net.Start("gzt_SetGrabMag")
 				net.WriteFloat(tempGM)
 				net.SendToServer()
 				self.GrabMagnitude=tempGM				
@@ -316,7 +291,7 @@ function PlayerBindPress(ply, bind, pressed)
 		end
 	end
 end
-hook.Add("PlayerBindPress", "ZoneToolScrollHandle", PlayerBindPress)
+hook.Add("PlayerBindPress", "tool_ZoneToolScrollHandle", PlayerBindPress)
 
 function TOOL:MakeBox() --SERVER ONLY
 	if CLIENT then return end
@@ -346,7 +321,7 @@ function TOOL:PlayerButtonDown(key, ply)
 		toolInst.KeyCreationQueue[#toolInst.KeyCreationQueue+1] = {key=key, time=SysTime()}
 	end
 end
-hook.Add("PlayerButtonDown", "ZoneToolKeyDown", TOOL.PlayerButtonDown)
+hook.Add("PlayerButtonDown", "tool_ZoneToolKeyDown", TOOL.PlayerButtonDown)
 
 function TOOL:PlayerButtonUp(key, ply)
     --In this function self refers to the player holding the tool, not the tool itself
@@ -362,7 +337,7 @@ function TOOL:PlayerButtonUp(key, ply)
 		end
 	end
 end
-hook.Add("PlayerButtonUp","ZoneToolKeyUp", TOOL.PlayerButtonUp)
+hook.Add("PlayerButtonUp","tool_ZoneToolKeyUp", TOOL.PlayerButtonUp)
 
 function TOOL:ProcessInput()
 	--CREATION OF KEY COMBOS

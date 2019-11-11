@@ -18,6 +18,7 @@ net.Receive("gzt_receivecatagories", function(len, ply)
     -- PrintTable(PANEL.CatagoryList)
 end)
 
+
 PANEL.CatagoryList = {}
 PANEL.FirstSelected = false
 PANEL.CurrentMode = nil
@@ -172,19 +173,5 @@ function PANEL:onClose()
     hook.Remove("DragNDropPaint")
     hook.Add("DrawOverlay", "DragNDropPaint", OriginalDragNDropPaintHook)
 end
-
-concommand.Add("gzt_hide_gui", function()
-    GZT_PANEL:Hide()
-end)
-
-concommand.Add("gzt_kill_gui", function()
-    local worldpanel = vgui.GetWorldPanel()
-    for k,v in pairs(worldpanel:GetChildren()) do
-        if(v:GetName()=="gzt_gui") then
-            v:Remove()
-            GZT_PANEL = nil
-        end
-    end
-end)
 
 vgui.Register("gzt_gui", PANEL, "EditablePanel") --has to be EditablePanel or else text entry wont work (thanks garry)

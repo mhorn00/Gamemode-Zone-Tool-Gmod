@@ -9,7 +9,7 @@ ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 
 function ENT:Initialize()
     self:SetModel("")
-    self:SetMoveType(MOVETYPE_FLY)
+    self:SetMoveType(MOVETYPE_NONE)
     self:SetCollisionGroup(COLLISION_GROUP_WORLD)
     self:EnableCustomCollisions(true)
     self:DrawShadow(false)
@@ -27,14 +27,22 @@ function ENT:Setup(size, id)
     self:SetIndex(id)
 end
 
+function ZoneCornerPhysgunPickup(ply, ent)
+    if(ent.ClassName == "gzt_zonecorner") then 
+        return
+    end
+end
+hook.Add("PhysgunPickup","gzt_zonecorner_physgun",ZoneCornerPhysgunPickup)
+
 function ENT:Think()        
     self:SetCollisionBounds(Vector(1,1,1)*-self:GetSize(), Vector(1,1,1)*self:GetSize())
 end
 
 function ENT:Draw()
     local cb1 ,cb2 = self:GetCollisionBounds()
-    --TODO: only draw outline when grabing thje corner 
+    --TODO: only draw outline when grabing the corner 
     cam.Start3D()
         --render.DrawWireframeBox(self:GetPos(), self:GetAngles(), cb1, cb2, self:GetColor())
     cam.End3D()
 end
+

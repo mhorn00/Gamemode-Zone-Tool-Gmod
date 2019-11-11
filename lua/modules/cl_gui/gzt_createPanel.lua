@@ -4,6 +4,12 @@ if SERVER then return end
 local PANEL = {}
 local selectedCatagoryConVar = CreateConVar("GZT_SelectedCatagory", "Root", FCVAR_USERINFO)
 
+net.Receive("gzt_ZoneCommitSuccessful", function(len, ply)
+    print("zone commit successful!")
+    CMAddZoneNode(GetConVar("GZT_SelectedCatagory"), net.ReadString())
+end)
+
+
 function PANEL:Init()    
 
     -- self:InvalidateParent(true)
@@ -105,7 +111,7 @@ function CMenuAddCurrentZone(self, node, currentbox)
     end
 end
 
-function CMAddZoneNode(catagory, zone)
+function CMAddZoneNode(catagory, zoneId)
     local newName = catagory.Label:GetText().." Zone "
     local i = 1
     while !IsZoneNameAvailable(newName..i) do
@@ -114,7 +120,7 @@ function CMAddZoneNode(catagory, zone)
     local node = catagory:AddNode(newName..i,"materials/zone_icon.png")
     node.Icon:SetImageColor(Color(0,0,0,255))
     node:Droppable("nodereceiver")
-    node.ent = zone
+    node.zoneId = zoneId
     catagory:SetExpanded(true)
     return newName..i,node
 end
