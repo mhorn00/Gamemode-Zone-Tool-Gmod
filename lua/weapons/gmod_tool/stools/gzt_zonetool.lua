@@ -234,11 +234,11 @@ function TOOL:SetToolMode(mode)
 			toMode=i
 		end
 	end
-	if CLIENT then
-		net.Start("gzt_SetToolMode")
-		net.WriteInt(toMode-1, 4)
-		net.SendToServer()
-	end
+	-- if CLIENT then
+	-- 	net.Start("gzt_SetToolMode")
+	-- 	net.WriteInt(toMode-1, 4)
+	-- 	net.SendToServer()
+	-- end
 	self:SetOperation(toMode-1)
 end
  

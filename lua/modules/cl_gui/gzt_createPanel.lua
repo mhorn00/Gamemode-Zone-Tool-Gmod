@@ -3,17 +3,20 @@ if SERVER then return end
 
 local PANEL = {}
 local selectedCatagoryConVar = CreateConVar("GZT_SelectedCatagory", "Root", FCVAR_USERINFO)
-
+local variable = 5
 net.Receive("gzt_ZoneCommitSuccessful", function(len, ply)
     print("zone commit successful!")
-    CMAddZoneNode(GetConVar("GZT_SelectedCatagory"), net.ReadString())
+    -- print("catagory", )
+    local catagoryName = GetConVar("GZT_SelectedCatagory"):GetString()
+    local catagoryNode = GZT_PANEL.basePanel.baseModePanel.createMode.catViewScroll.catagoryView.catNodes[catagoryName]
+    CMAddZoneNode(catagoryNode, net.ReadString())
 end)
 
+local hasInit = false
 
 function PANEL:Init()    
-
+    hasInit = true
     -- self:InvalidateParent(true)
-
     self.gamemodeSelect = vgui.Create("DComboBox", self)
     self.gamemodeSelect:DockMargin(0,0,500,0)
     self.gamemodeSelect:Dock(TOP)
@@ -51,6 +54,7 @@ function PANEL:Init()
         -- PrintTable(selectedNode)
         GZT_ZONETOOL.currentCatagory = self.catViewScroll.catagoryView.catNodes[selectedNode.Label:GetText()]
     end
+    -- PANEL = self
 end
 
 //TODO: This needs to read from the master list on the server
@@ -69,7 +73,7 @@ function PANEL:CMPopulateCatagories(catagories)
     self.catViewScroll.catagoryView.catNodes["Root"] = self.catViewScroll.catagoryView:AddNode("Root", "materials/catagory_icon.png")
     self.catViewScroll.catagoryView.catNodes["Root"].Icon:SetImageColor(RootNode.color or Color(255,255,255))
     self.catViewScroll.catagoryView.catNodes["Root"]:Receiver("nodereceiver", ReceiveHandler, {})
-    self.catViewScroll.catagoryView.catNodes["Root"].DoRightClick = CMCatagoryMenuHandler
+    self.catViewScroll.catagoryView.catNodes["Root"].DoRightClick = CMNodeMenuHandler
     self.catViewScroll.catagoryView.catNodes["Root"].DoClick = SetPlayerCatagory
     self.catViewScroll.catagoryView.catNodes["Root"].isRoot = true
     
@@ -95,7 +99,7 @@ function PANEL:CMAddCatagoryNode(parent, newNodeInfo)
     local node = parent:AddNode(newNodeInfo.name, "materials/catagory_icon.png")
     node.Icon:SetImageColor(newNodeInfo.color or Color(255,255,255))
     node.DoClick = SetPlayerCatagory
-    node.DoRightClick = CMCatagoryMenuHandler
+    node.DoRightClick = CMNodeMenuHandler
     node:Droppable("nodereceiver")
     node:Receiver("nodereceiver", ReceiveHandler, {})
     node.isRoot = false
@@ -106,6 +110,7 @@ function CMenuAddCurrentZone(self, node, currentbox)
     if(currentbox.MinBound != nil && currentbox.MaxBound != nil) then
         local name, node = CMAddZoneNode(node, currentbox)
         node.DoRightClick = CMNodeMenuHandler
+        node.nodeType ="zone"
         self.catViewScroll.catagoryView.zoneNodes[name] = node 
         currentbox.catagory = node.Label:GetName()
     end
@@ -159,7 +164,7 @@ function ReceiveHandler(node, tblDropped, isDropped, menuIndex, mouseX, mouseY)
     end
 end
 
-function CMCatagoryMenuHandler(node, button)
+function CMNodeMenuHandler(node, button)
     local cmenu = DermaMenu(node)
     cmenu:AddOption("Add Catagory")
     cmenu:AddOption("Add Current Zone")
@@ -173,9 +178,11 @@ function CMCatagoryMenuHandler(node, button)
     end
     if(!node.isRoot) then
         cmenu:AddOption("Cut")
-
         cmenu:AddOption("Rename")
         cmenu:AddOption("Delete")
+    end
+    if(node.nodeType == "zone") then
+        cmenu:AddOption("Select Zone")
     end
     cmenu.OptionSelected = function(menu, option, text)
         if text == "Add Catagory" then
@@ -201,6 +208,11 @@ function CMCatagoryMenuHandler(node, button)
             CMMenuRenameCatagoryNode(GZT_PANEL.basePanel.baseModePanel.createMode, node)
         elseif text == "Delete" then
             CMMenuDeleteCatagoryNode(GZT_PANEL.basePanel.baseModePanel.createMode, node)
+        else if text=="Select Zone" then
+            local id = node.zoneId
+            net.Start("gzt_EditZone")
+                net.WriteString(id)
+            net.SendToServer()
         end
     end
     cmenu:Open()

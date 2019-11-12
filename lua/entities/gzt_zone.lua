@@ -126,7 +126,11 @@ function ENT:Draw()
 	cam.Start3D()
 		local rb1,rb2 = self:GetRenderBounds()
 		local waabb1, waabb2 = self:WorldSpaceAABB() 
-		render.DrawWireframeBox(Vector(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(0,0,0,255), false)
+		if(LocalPlayer():GetActiveWeapon() && LocalPlayer():GetActiveWeapon().GetCurrentEnt && IsValid(LocalPlayer():GetActiveWeapon():GetCurrentEnt()) && LocalPlayer():GetActiveWeapon():GetCurrentEnt() == self) then
+			render.DrawWireframeBox(Vector(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(255,0,0,255), true)
+		else
+			render.DrawWireframeBox(Vector(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(0,0,0,255), false)
+		end
 	cam.End3D()
 	if self:GetDrawFaces() then
 		local center = Lerp(0.5, self:GetMinBound(), self:GetMaxBound())

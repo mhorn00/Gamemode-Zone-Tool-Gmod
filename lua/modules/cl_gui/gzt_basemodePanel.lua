@@ -4,7 +4,7 @@ include("modules/cl_gui/gzt_editPanel.lua")
 include("modules/cl_gui/gzt_prgmPanel.lua")
 if SERVER then return end
 
-PANEL = {}
+local PANEL = {}
 
 function PANEL:Init()
     self.createMode = vgui.Create("gzt_createPanel", self, GZT_ZONETOOL.Modes.Create)

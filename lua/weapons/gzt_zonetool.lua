@@ -19,7 +19,7 @@ SWEP.SlotPos = 8
 SWEP.UseHands = true
 SWEP.Weight	= 5
 
-SWEP.AccurateCrosshair = true
+SWEP.AccurateCrosshair = false
 SWEP.AutoSwitchTo = false
 SWEP.AutoSwitchFrom	= false
 SWEP.DrawAmmo = false
@@ -56,17 +56,19 @@ SWEP.ModeList = {
 SWEP.KeyTable = {}
 SWEP.KeyCreationQueue = {}
 SWEP.KeyExecutionQueue = {}
-SWEP.ModifierKeys = {
-    KEY_LCONTROL = true,
-    KEY_LSHIFT = true, 
-    KEY_LALT = true
-}
+SWEP.ModifierKeys = {}
+SWEP.ModifierKeys[KEY_LCONTROL] = true
+SWEP.ModifierKeys[KEY_LSHIFT] = true
+SWEP.ModifierKeys[KEY_LALT] = true
 
+SWEP.SelectedCorner = nil
+SWEP.GrabMagCL = -1
 
 function SWEP:Initialize()
 	self.Initialized = true
     self:SetHoldType("revolver")
 	self:SetNumToolMode(1)
+	self:SetCurrentEnt(nil)
 	self:IncToolMode()
 end
 
@@ -74,6 +76,19 @@ function SWEP:SetupDataTables()
 	self:NetworkVar("Int", 0, "NumToolMode")
 	self:NetworkVar("Bool", 0, "IsPaused")
 	self:NetworkVar("Bool", 1, "IsHovering")
+	self:NetworkVar("Bool", 2, "ShouldProcessInput")
+	self:NetworkVar("Float",0,"GrabMag")
+	self:NetworkVar("Entity", 0, "CurrentEnt")
+
+	self:NetworkVarNotify("GrabMag", function(ent, name, old, new)
+		print("NEW GRAB MAG!!!", new)
+	end)
+end
+
+function SWEP:Deploy()
+	self.KeyCreationQueue = {}
+	self.KeyExecutionQueue = {}
+	self:SetShouldProcessInput(true)
 end
 
 function SWEP:CanBePickedUpByNPCs()
@@ -87,6 +102,7 @@ function SWEP:CanSecondaryAttack()
 end
 
 function SWEP:Think()
+	if !self.Initialized then self:Initialize() end
 	if CLIENT then
 		if((vgui.GetHoveredPanel()!=nil)!=self:GetIsHovering()) then
 			self:SetIsHovering(!self:GetIsHovering())
@@ -105,9 +121,10 @@ function SWEP:Think()
 		self.KeyExecutionQueue = {}
 		self.KeyCreationQueue = {}
 	end
-	if !self.Initialized then self:Initialize() end
 	if ((gui && !gui.IsGameUIVisible() && vgui.GetHoveredPanel()==nil) || (SERVER && !self:GetIsPaused() && !self:GetIsHovering())) then
-		self:ProcessInput()
+		if self:GetShouldProcessInput() then
+			self:ProcessInput()
+		end
 	end
 end
 
@@ -126,10 +143,12 @@ end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_T] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released && SERVER then
-		if self.CurrentBox.Ent:GetDrawFaces() then
-			self.CurrentBox.Ent:SetDrawFaces(false)
-		else
-			self.CurrentBox.Ent:SetDrawFaces(true)
+		if self.CurrentBox.Ent && IsValid(self.CurrentBox.Ent) then
+			if self.CurrentBox.Ent:GetDrawFaces() then
+				self.CurrentBox.Ent:SetDrawFaces(false)
+			else
+				self.CurrentBox.Ent:SetDrawFaces(true)
+			end
 		end
 	end
 end
@@ -176,34 +195,41 @@ SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCom
 	end
 end
 
--- SWEP["KF"..SWEP.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
--- 	if !KeyCombo.processed && !KeyCombo.released then
--- 		if(!IsValid(self.SelectedCorner)) then
--- 			tr = self:GetOwner():GetEyeTrace()
--- 			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner" && !tr.Entity:GetOwner().Grabbed) then
--- 				//set grab state for all corners to true, grabplayer maybe = self:GetOwner()?
--- 				self.SelectedCorner = tr.Entity
--- 				self.SelectedCorner:GetOwner().Grabbed = true
--- 				self.SelectedCorner:SetColor(Color(0,0,255,255))
--- 				self.GrabMagnitude=self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
--- 			end
--- 		end
--- 	elseif KeyCombo.processed && !KeyCombo.released then
--- 		if IsValid(self.SelectedCorner) then
--- 			self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagnitude)
--- 			self.SelectedCorner:GetOwner():Resize(self.SelectedCorner)
--- 		end
--- 	elseif KeyCombo.processed && KeyCombo.released then
--- 		if IsValid(self.SelectedCorner) then
--- 			self.SelectedCorner:SetColor(Color(255,255,255,255))
--- 			if(SERVER) then
--- 				self.SelectedCorner:GetOwner():BuildCorners()
--- 			end
--- 			self.SelectedCorner:GetOwner().Grabbed = nil
--- 			self.SelectedCorner = nil 
--- 		end
--- 	end
--- end
+SWEP["KF"..SWEP.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
+	if !KeyCombo.processed && !KeyCombo.released then
+		if(!IsValid(self.SelectedCorner)) then
+			tr = self:GetOwner():GetEyeTrace()
+			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner" && !tr.Entity:GetOwner().Grabbed) then
+				//set grab state for all corners to true, grabplayer maybe = self:GetOwner()?
+				self.SelectedCorner = tr.Entity
+				self.SelectedCorner:GetOwner().Grabbed = true
+				self.SelectedCorner:SetColor(Color(0,0,255,255))
+				self:SetGrabMag(self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos()))
+				self.GrabMagCL = self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
+				print("Set grab mag to "..self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos()))
+			end
+		end
+	elseif KeyCombo.processed && !KeyCombo.released then
+		if IsValid(self.SelectedCorner) then
+			print("using grab mag ", self:GetGrabMag())
+			if SERVER then
+				self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self:GetGrabMag())
+			else
+				self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagCL)
+			end
+			self.SelectedCorner:GetOwner():Resize(self.SelectedCorner)
+		end
+	elseif KeyCombo.processed && KeyCombo.released then
+		if IsValid(self.SelectedCorner) then
+			self.SelectedCorner:SetColor(Color(255,255,255,255))
+			if(SERVER) then
+				self.SelectedCorner:GetOwner():BuildCorners()
+			end
+			self.SelectedCorner:GetOwner().Grabbed = nil
+			self.SelectedCorner = nil 
+		end
+	end
+end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_M] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released && SERVER then
@@ -217,11 +243,25 @@ SWEP["KF"..SWEP.Modes.Create..KEY_M] = function(self, KeyCombo)
 	end
 end
 
-//finish these methods 
-function SWEP:MakeBox()
+function SWEP:MakeBox() --SERVER ONLY
+	if CLIENT then return end
+	if !IsValid(self.CurrentBox.Ent) then
+		self.CurrentBox.Ent=ents.Create("gzt_zone")
+		self.CurrentBox.Ent:Spawn()
+	end
+	if(!self.CurrentBox.Ent.id) then
+		GZT_ZONES:Push(self.CurrentBox.Ent)
+	end
+	self.CurrentBox.Ent:Setup(self.CurrentBox.MinBound, self.CurrentBox.MaxBound)
+	self:SetCurrentEnt(self.CurrentBox.Ent)
 end
 
-function SWEP:DeleteBox()
+function SWEP:DeleteBox() 
+	if CLIENT then return end
+	if(self.CurrentBox && IsValid(self.CurrentBox.Ent)) then
+		self.CurrentBox.Ent:Remove()
+		self:SetCurrentEnt(nil)
+	end
 end
 
 
@@ -244,6 +284,27 @@ function SWEP:IncToolMode()
 		self:SetNumToolMode(self:GetNumToolMode()+1)
 	end
 end
+
+
+function PlayerBindPress(ply, bind, pressed)
+	if(ply:GetActiveWeapon():IsValid() && ply:GetActiveWeapon():GetClass()=="gzt_zonetool") then
+		local self = ply:GetActiveWeapon()
+		if IsValid(self.SelectedCorner) then
+			if(bind == "invprev") then
+				--TODO:scale amount moved on scroll by how far away the box is
+				self.GrabMagCL = math.max(self.GrabMagCL+10, 10)
+				self:SetGrabMag(self.GrabMagCL)
+				print("increasing grabmag to ", self.GrabMagCL)
+				return true
+			elseif bind == "invnext" then
+				self.GrabMagCL = math.max(self.GrabMagCL-10, 10)
+				self:SetGrabMag(self.GrabMagCL)
+				return true
+			end
+		end
+	end
+end
+hook.Add("PlayerBindPress", "gzt_ZoneToolScrollHandle", PlayerBindPress)
 
 function SWEP:PlayerButtonDown(key, ply)
 	--In this function self refers to the player holding the tool, not the tool itself
@@ -427,14 +488,25 @@ end
 
 function SWEP:RenderScreen()
     if SERVER then return end
+	local matScreen = Material( "models/weapons/v_toolgun/screen" )
     local screenTarget = GetRenderTarget("GModToolgunScreen", 256, 256)
+	matScreen:SetTexture( "$basetexture", screenTarget )
 	render.PushRenderTarget(screenTarget)
 	cam.Start2D()
 		surface.SetDrawColor(0,0,0,255)
 		surface.DrawRect(0,0,256,256)
 		--Draw tool screen here
-        draw.SimpleText("yeet", "GModToolScreen", 256/2, 256/2, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
-		draw.SimpleText(self.ModeList[self:GetNumToolMode()], "GModToolScreen", 256/2, 256/1.5, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
+        draw.SimpleText("yeet", "GModToolScreen", 256/2, 256/3, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
+		draw.SimpleText(self.ModeList[self:GetNumToolMode()], "GModToolSubtitle", 256/2, 256/1.5, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
 	cam.End2D()
 	render.PopRenderTarget()
 end
+
+--[[ current problems...
+
+	grab mag not working <- just use net or something
+	paused detection/process input running when paused
+	corner trailing behind cursor
+	corner beam 
+	corners still active when zone gone
+]]

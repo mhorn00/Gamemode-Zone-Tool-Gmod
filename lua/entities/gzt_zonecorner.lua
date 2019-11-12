@@ -29,7 +29,7 @@ end
 
 function ZoneCornerPhysgunPickup(ply, ent)
     if(ent.ClassName == "gzt_zonecorner") then 
-        return
+        return false
     end
 end
 hook.Add("PhysgunPickup","gzt_zonecorner_physgun",ZoneCornerPhysgunPickup)
