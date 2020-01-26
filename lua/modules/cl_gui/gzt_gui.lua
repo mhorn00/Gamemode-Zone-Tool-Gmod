@@ -12,6 +12,11 @@ local PANEL = {}
 net.Receive("gzt_receivecatagories", function(len, ply)
     local CatagoryList = net.ReadTable()
     GZT_PANEL.CatagoryList = CatagoryList
+    -- print(self.CMPopulateCatagories)
+    print("before da popurate")
+    -- print(GZT_PANEL.basePanel.baseModePanel.createMode)
+    GZT_PANEL.basePanel.baseModePanel.createMode:CMPopulateCatagories(CatagoryList[GAMEMODE.Name])
+    print("^ dis worked")
     //print("panel", PANEL)
     //PrintTable(PANEL)
     -- print("cat list ")
@@ -173,5 +178,6 @@ function PANEL:onClose()
     hook.Remove("DragNDropPaint")
     hook.Add("DrawOverlay", "DragNDropPaint", OriginalDragNDropPaintHook)
 end
+
 
 vgui.Register("gzt_gui", PANEL, "EditablePanel") --has to be EditablePanel or else text entry wont work (thanks garry)

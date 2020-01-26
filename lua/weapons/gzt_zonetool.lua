@@ -1,5 +1,7 @@
 AddCSLuaFile()
 
+-- include("modules/cl_gui/gzt_gui.lua")
+
 SWEP.Category = "Zone Tool"
 SWEP.Spawnable = true --this is not supposed to be spawnable
 SWEP.AdminOnly = true 
@@ -72,6 +74,20 @@ function SWEP:Initialize()
 	self:IncToolMode()
 end
 
+net.Receive("gzt_ZoneCommitSuccessful", function(len,ply)
+	print(len)
+	print("commit success!!!!!!")
+	SWEP:ZoneCommitSuccessful()
+end)
+
+function SWEP:ZoneCommitSuccessful()
+	self.CurrentBox.SetColor(Color(0,0,0,255))
+	self.CurrentEnt = nil	
+end
+
+-- print("========= ADDDED ZONE COMMIT SUCCESSFUL ===========")
+
+
 function SWEP:SetupDataTables()
 	self:NetworkVar("Int", 0, "NumToolMode")
 	self:NetworkVar("Bool", 0, "IsPaused")
@@ -136,7 +152,9 @@ for k,v in pairs(SWEP.Modes) do
 	end
 	SWEP["KF"..v..KEY_H] = function(self, KeyCombo)
 		if !KeyCombo.processed && !KeyCombo.released && CLIENT then
+			print("BEFORE",GZT_PANEL)
 			self:GetOwner():ConCommand("gzt_toggle_gui")
+			print("AFTER",GZT_PANEL)
 		end	
 	end
 end
@@ -321,6 +339,7 @@ function SWEP:PlayerButtonUp(key, ply)
     --In this function self refers to the player holding the tool, not the tool itself
 	if self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gzt_zonetool" then
 		local toolInst = self:GetActiveWeapon()
+		if(!toolInst.KeyTable) then return end
 		toolInst.KeyTable[key] = nil
 		if(toolInst.ModifierKeys[key]) then
 			for i,v in pairs(toolInst.KeyCreationQueue) do
@@ -510,3 +529,4 @@ end
 	corner beam 
 	corners still active when zone gone
 ]]
+GZT_ZONETOOL = SWEP
