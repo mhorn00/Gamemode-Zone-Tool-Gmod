@@ -1,2 +1,0 @@
-AddCSLuaFile()
-print("7/11 BITCH! MOTHAFUCKIN NEWPORTS")

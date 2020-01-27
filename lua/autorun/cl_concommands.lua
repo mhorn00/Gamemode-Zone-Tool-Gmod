@@ -3,17 +3,18 @@ AddCSLuaFile()
 if SERVER then return end
 
 concommand.Add("gzt_toggle_gui", function()
-    print(GZT_PANEL)
-    if(!GZT_PANEL) then
-        GZT_PANEL = vgui.Create("gzt_gui")
+    if !GZT_GUI then
+        GZT_GUI = vgui.Create("gzt_gui")
     end
-    GZT_PANEL:SetVisible(true)
-    GZT_PANEL:SetToolRef(LocalPlayer():GetActiveWeapon())
-    GZT_PANEL:PopulateUI()
+    if GZT_GUI:IsVisible() then
+        GZT_GUI:SetVisible(false)
+    else
+        GZT_GUI:SetVisible(true)
+    end
 end)
 
 concommand.Add("gzt_hide_gui", function()
-    GZT_PANEL:Hide()
+    GZT_GUI:Hide()
 end)
 
 concommand.Add("gzt_kill_gui", function()
@@ -21,7 +22,8 @@ concommand.Add("gzt_kill_gui", function()
     for k,v in pairs(worldpanel:GetChildren()) do
         if(v:GetName()=="gzt_gui") then
             v:Remove()
-            GZT_PANEL = nil
+            GZT_GUI = nil
         end
     end
+    print("Killed gzt_gui")
 end)

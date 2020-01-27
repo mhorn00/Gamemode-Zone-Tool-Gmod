@@ -107,6 +107,13 @@ function ENT:Think()
 			self:SetRenderOrigin(Lerp(0.5, self:GetMinBound(),self:GetMaxBound()))
 		end
 	end
+	--[[]
+	Events we are checking for:
+		Enter from top/left/right etc side
+		Shoot from side,
+		player enter with side,
+
+	]]
 end
 
 function ENT:Initialize()

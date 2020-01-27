@@ -6,7 +6,7 @@ GZT_ZONES = {
 if SERVER then  
     GZT_ZONELIST = { zones = {} }
     GZT_UNMADEZONELIST = { zones = {} }
-    GZT_CATEGORYLIST = {categories = {}}
+    GZT_CATEGORYLIST = {categories = GZT_CATEGORYDEFS}
     --[[category example = {
         parents = {"Root","Parent1","Parent2"... etc},
         color = Color(255,0,0,255),
@@ -121,8 +121,6 @@ if SERVER then
     function GZT_ZONES:EditZone(id)
     end
 
-    function GZT_ZONES:
-
     local random = math.random
     local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
     local function uuidv4()
@@ -133,10 +131,11 @@ if SERVER then
         return uuid
     end
     
-    function GM:PostGamemodeLoaded()
+    function GZT_ZoneTable_PostGamemodeLoaded()
         // ok load categories!
 
     end
+    hook.Add("PostGamemodeLoaded","GZT_ZoneTable_PostGamemodeLoaded" , GZT_ZoneTable_PostGamemodeLoaded)
 
 elseif CLIENT then
     function GZT_ZONES:GetZone(id)

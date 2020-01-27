@@ -1,7 +1,7 @@
 if CLIENT then return end
 
 GZT_ZONEDEFS = {}
-GZT_CATEGORYDEF = {}
+GZT_CATEGORYDEFS = {}
 
 GZT_LOADER = {}
 
@@ -12,7 +12,7 @@ function GZT_LOADER.LoadCategories(gm, def)
     end
     --TODO: error checking and stuff
     -- GZT_CATEGORYDEFS[gm] = def
-    GZT_CATEGORYLIST.categories = def
+    GZT_CATEGORYDEFS = def
 end
 
 function GZT_LOADER.LoadZoneDef(map, def)

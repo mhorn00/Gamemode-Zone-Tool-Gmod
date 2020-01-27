@@ -31,3 +31,5 @@ function PANEL:Init()
     end
     self.gamemodeSelect:SetValue(GAMEMODE.Name)
 end
+
+vgui.Register("gzt_createPanel", PANEL, "DPanel")

@@ -95,10 +95,6 @@ function SWEP:SetupDataTables()
 	self:NetworkVar("Bool", 2, "ShouldProcessInput")
 	self:NetworkVar("Float",0,"GrabMag")
 	self:NetworkVar("Entity", 0, "CurrentEnt")
-
-	self:NetworkVarNotify("GrabMag", function(ent, name, old, new)
-		print("NEW GRAB MAG!!!", new)
-	end)
 end
 
 function SWEP:Deploy()
@@ -151,10 +147,9 @@ for k,v in pairs(SWEP.Modes) do
 		end
 	end
 	SWEP["KF"..v..KEY_H] = function(self, KeyCombo)
+		-- TODO: chage the keybinds system to allow for a keybind to set if it can run while paused or in a menu 
 		if !KeyCombo.processed && !KeyCombo.released && CLIENT then
-			print("BEFORE",GZT_PANEL)
 			self:GetOwner():ConCommand("gzt_toggle_gui")
-			print("AFTER",GZT_PANEL)
 		end	
 	end
 end
@@ -282,10 +277,10 @@ function SWEP:DeleteBox()
 	end
 end
 
-
 function SWEP:GetToolMode() 
 	return self.ModeList[self:GetNumToolMode()]
 end
+
 function SWEP:SetToolMode(mode)
 	for k,v in pairs(self.ModeList) do
 		if v == mode then
@@ -302,7 +297,6 @@ function SWEP:IncToolMode()
 		self:SetNumToolMode(self:GetNumToolMode()+1)
 	end
 end
-
 
 function PlayerBindPress(ply, bind, pressed)
 	if(ply:GetActiveWeapon():IsValid() && ply:GetActiveWeapon():GetClass()=="gzt_zonetool") then
