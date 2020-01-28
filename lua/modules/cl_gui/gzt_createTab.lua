@@ -1,7 +1,6 @@
 AddCSLuaFile()
-if SERVER then return end
 
-include("modules/cl_gui/gzt_tabPanel.lua")
+if SERVER then return end
 
 local PANEL = {}
 
@@ -9,4 +8,4 @@ function PANEL:Init()
 
 end
 
-vgui.Register("gzt_CreateTab", PANEL, "gzt_TabPanel")
+vgui.Register("gzt_CreateTab", PANEL, "DPanel")

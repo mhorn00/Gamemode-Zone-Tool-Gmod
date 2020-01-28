@@ -3,13 +3,22 @@ AddCSLuaFile()
 if SERVER then return end
 
 concommand.Add("gzt_toggle_gui", function()
+    local firstTime = false
     if !GZT_GUI then
         GZT_GUI = vgui.Create("gzt_gui")
+        firstTime = true
     end
-    if GZT_GUI:IsVisible() then
-        GZT_GUI:SetVisible(false)
+    if GZT_GUI:IsVisible() && !firstTime then
+        if ConVarExists("gzt_in_menu") then
+            GetConVar("gzt_in_menu"):SetInt(0)
+        end
+        GZT_GUI:AlphaTo(0, 0.2, 0, function() GZT_GUI:SetVisible(false) end)
     else
+        if ConVarExists("gzt_in_menu") then
+            GetConVar("gzt_in_menu"):SetInt(1)
+        end
         GZT_GUI:SetVisible(true)
+        GZT_GUI:AlphaTo(255, 0.2)
     end
 end)
 

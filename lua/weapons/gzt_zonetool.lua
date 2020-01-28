@@ -36,6 +36,8 @@ SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
 SWEP.Initialized = false
+SWEP.IsPaused = false --CLIENT ONLY
+
 
 SWEP.CurrentBox = {
 	MinBound=nil,
@@ -75,8 +77,6 @@ function SWEP:Initialize()
 end
 
 net.Receive("gzt_ZoneCommitSuccessful", function(len,ply)
-	print(len)
-	print("commit success!!!!!!")
 	SWEP:ZoneCommitSuccessful()
 end)
 
@@ -85,14 +85,8 @@ function SWEP:ZoneCommitSuccessful()
 	self.CurrentEnt = nil	
 end
 
--- print("========= ADDDED ZONE COMMIT SUCCESSFUL ===========")
-
-
 function SWEP:SetupDataTables()
 	self:NetworkVar("Int", 0, "NumToolMode")
-	self:NetworkVar("Bool", 0, "IsPaused")
-	self:NetworkVar("Bool", 1, "IsHovering")
-	self:NetworkVar("Bool", 2, "ShouldProcessInput")
 	self:NetworkVar("Float",0,"GrabMag")
 	self:NetworkVar("Entity", 0, "CurrentEnt")
 end
@@ -100,7 +94,6 @@ end
 function SWEP:Deploy()
 	self.KeyCreationQueue = {}
 	self.KeyExecutionQueue = {}
-	self:SetShouldProcessInput(true)
 end
 
 function SWEP:CanBePickedUpByNPCs()
@@ -116,38 +109,28 @@ end
 function SWEP:Think()
 	if !self.Initialized then self:Initialize() end
 	if CLIENT then
-		if((vgui.GetHoveredPanel()!=nil)!=self:GetIsHovering()) then
-			self:SetIsHovering(!self:GetIsHovering())
-			if(!self:GetIsHovering()) then
-				self.KeyCreationQueue = {}
-				self.KeyExecutionQueue = {}
+		if ConVarExists("gzt_is_paused") then 
+			if gui.IsGameUIVisible() && !self.IsPaused then
+				self.IsPaused = true
+				GetConVar("gzt_is_paused"):SetInt(1)
+			elseif !gui.IsGameUIVisible() && self.IsPaused then
+				self.IsPaused = false
+				GetConVar("gzt_is_paused"):SetInt(0)
 			end
 		end
 	end
-	if CLIENT && (gui && gui.IsGameUIVisible()) && !self.isPaused then
-		self:SetIsPaused(true)
-		self.KeyExecutionQueue = {}
-		self.KeyCreationQueue = {}
-	elseif CLIENT && (gui && !gui.IsGameUIVisible()) && self.isPaused then
-		self:SetIsPaused(false)
-		self.KeyExecutionQueue = {}
-		self.KeyCreationQueue = {}
-	end
-	if ((gui && !gui.IsGameUIVisible() && vgui.GetHoveredPanel()==nil) || (SERVER && !self:GetIsPaused() && !self:GetIsHovering())) then
-		if self:GetShouldProcessInput() then
-			self:ProcessInput()
-		end
-	end
+	self:ProcessInput()
 end
 
 for k,v in pairs(SWEP.Modes) do
 	SWEP["KF"..v..KEY_R] = function(self, KeyCombo)
+		if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 		if !KeyCombo.processed && !KeyCombo.released then
 			self:IncToolMode()
 		end
 	end
 	SWEP["KF"..v..KEY_H] = function(self, KeyCombo)
-		-- TODO: chage the keybinds system to allow for a keybind to set if it can run while paused or in a menu 
+		if GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 		if !KeyCombo.processed && !KeyCombo.released && CLIENT then
 			self:GetOwner():ConCommand("gzt_toggle_gui")
 		end	
@@ -155,6 +138,7 @@ for k,v in pairs(SWEP.Modes) do
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_T] = function(self, KeyCombo)
+	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released && SERVER then
 		if self.CurrentBox.Ent && IsValid(self.CurrentBox.Ent) then
 			if self.CurrentBox.Ent:GetDrawFaces() then
@@ -167,6 +151,7 @@ SWEP["KF"..SWEP.Modes.Create..KEY_T] = function(self, KeyCombo)
 end
 
 SWEP["KF"..SWEP.Modes.Create..MOUSE_LEFT] = function(self, KeyCombo)
+	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then  
 		self.CurrentBox.MinBound = self:GetOwner():GetPos()
 		if self.CurrentBox && self.CurrentBox.MinBound && self.CurrentBox.MaxBound then
@@ -176,6 +161,7 @@ SWEP["KF"..SWEP.Modes.Create..MOUSE_LEFT] = function(self, KeyCombo)
 end
 
 SWEP["KF"..SWEP.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
+	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
 		self.CurrentBox.MaxBound = self:GetOwner():GetPos()
 		if self.CurrentBox && self.CurrentBox.MinBound && self.CurrentBox.MaxBound then
@@ -185,6 +171,7 @@ SWEP["KF"..SWEP.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_LEFT] = function(self, KeyCombo)
+	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
 		if self.CurrentBox.Ent then
 			self:DeleteBox()
@@ -197,6 +184,7 @@ SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_LEFT] = function(self, KeyComb
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCombo)
+	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then 
 		if self.CurrentBox.Ent then
 			self:DeleteBox()
@@ -209,6 +197,7 @@ SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCom
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
+	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
 		if(!IsValid(self.SelectedCorner)) then
 			tr = self:GetOwner():GetEyeTrace()
@@ -245,6 +234,7 @@ SWEP["KF"..SWEP.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_M] = function(self, KeyCombo)
+	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released && SERVER then
 		if IsValid(self.CurrentBox.Ent) then
 			GZT_ZONES:Commit(self.CurrentBox.Ent, self:GetOwner())
@@ -290,6 +280,7 @@ function SWEP:SetToolMode(mode)
 	end
 	self:SetNumToolMode(2)
 end
+
 function SWEP:IncToolMode()
 	if self:GetNumToolMode() >= #self.ModeList then
 		self:SetNumToolMode(2)
