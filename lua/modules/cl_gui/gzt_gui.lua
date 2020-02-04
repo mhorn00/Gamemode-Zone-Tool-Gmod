@@ -43,6 +43,7 @@ end
 
 function PANEL:OnKeyCodePressed(keyCode)
     if keyCode == KEY_H then
+        --TODO: make this rebindable
         LocalPlayer():ConCommand("gzt_toggle_gui")
     end
 end

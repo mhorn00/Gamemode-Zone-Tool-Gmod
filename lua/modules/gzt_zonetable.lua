@@ -133,7 +133,6 @@ if SERVER then
     
     function GZT_ZoneTable_PostGamemodeLoaded()
         // ok load categories!
-
     end
     hook.Add("PostGamemodeLoaded","GZT_ZoneTable_PostGamemodeLoaded" , GZT_ZoneTable_PostGamemodeLoaded)
 
