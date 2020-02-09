@@ -1,6 +1,6 @@
 if CLIENT then return end
 
-local hookList = {--currently jsut ideas of what to implement
+local hookList = {--currently just ideas of what to implement at a later date
     onEnter = "onEnter",
     onExit = "onExit",
     onDie = "onDie",
@@ -8,43 +8,65 @@ local hookList = {--currently jsut ideas of what to implement
 }
 
 local reserved = {
-    visible = {type="boolean", optional=true},
-    color = {type="table",optional=true},
-    displayName = {type="string",optional=true},
-    parents = {type="table", optional=false},
-    functions = {type="table", optional=true},
-    maxZones = {type="number", optional=true},
-    properties = {type="table",optional=true}, //TODO: makes sure these names arent used (specifical functions, properites, editable and loadedBy)
-    editable = {type="boolean",optional=true},
-    loadedBy = {type="string",optional=true}
+    gzt_visible = {type="boolean", optional=true},
+    gzt_color = {type="table",optional=true},
+    gzt_displayName = {type="string",optional=true},
+    gzt_parents = {type="table", optional=false},
+    gzt_functions = {type="table", optional=true},
+    gzt_maxZones = {type="number", optional=true},
+    gzt_properties = {type="table",optional=true}, //TODO: makes sure these names arent used (specificaly: functions, properites, editable, and loadedBy)
+    gzt_editable = {type="boolean",optional=true},
+    gzt_loadedBy = {type="string",optional=true}
 }
 
 function errorHandler(error)
     print(error)
 end
 
-function categoryFunctionProcessor(category)
-    if category.functions == nil then
-        category.functions = {}
+function listJoin(givenList,joiner, startIndex, endIndex )
+
+    local ret = ""
+    startIndex = startIndex and startIndex or 1
+    endIndex = endIndex and endIndex or #givenList
+    if(#givenList==1) then
+        error("You must name your function i.e. function "..givenList[1].."_main()")
     end
-    if category.properties == nil then
-        category.properties = {}
+    for k,v in pairs(givenList) do
+        if(type(k)!="number") then
+            error("List join requires that the given table is a list that is indexed by numbers")
+        else
+            if(k>=startIndex && k<=endIndex) then
+                ret = ret..v..(k==endIndex and "" or joiner)
+            end
+        end
+    end
+    return ret
+end
+
+print(listJoin({"onEnter","main"},"_",2))
+
+function categoryFunctionProcessor(category)
+    if category.gzt_functions == nil then
+        category.gzt_functions = {}
+    end
+    if category.gzt_properties == nil then
+        category.gzt_properties = {}
     end
     for functionName, func in pairs(category) do
         if type(func)=="function" then
             local added = false
             for hookName, str in pairs(hookList) do
                 if(string.StartWith(functionName, hookName)) then
-                    if category.functions[hookName] == nil then
-                        category.functions[hookName] = {}
+                    if category.gzt_functions[hookName] == nil then
+                        category.gzt_functions[hookName] = {}
                     end
-                    category.functions[hookName][string.Split(functionName,"_")[2]] = func //insert it into function table indexed by original name (after underscore)
+                    category.gzt_functions[hookName][listJoin(string.Split(functionName,"_"),"_",2)] = func //insert it into function table indexed by original name (after underscore)
                     added=true
                     category[functionName] = nil
                 end
             end
             if !added then
-                category.properties[functionName] = func
+                category.gzt_properties[functionName] = func
                 category[functionName] = nil
             end
         end
@@ -53,60 +75,83 @@ end
 
 function categoryPropertyProcessor(cat)
     if cat.properties == nil then
-        cat.properties = {}
+        cat.gzt_properties = {}
     end
     for propertyName,prop in pairs(cat) do
         if type(prop) != "function" then
             if reserved[propertyName] == nil then
-                cat.properties[propertyName] = prop
+                cat.gzt_properties[propertyName] = prop
                 cat[propertyName] = nil 
             end
         end
     end
 end
 
-function errorCheck(catName,cat) -- basic error check making sure that all of the right datatypes
+function errorCheck(catName,cat) -- basic error check making sure that all reserved props are the right datatypes
+    //TODO: makes sure our reserved words arent used already
     for k,v in pairs(reserved) do 
         if ((!cat[k] or type(cat[k])!=v.type) and !v.optional) then
+            print(cat[k])
             error("Invalid definition of category '"..catName.."': Invalid definition of '"..k.."', expected '"..v.type.."' got '"..type(cat[k]).."'")
         end
     end
 end
 
 function deepTypeCheck(t1, t2)
-    local deepCheckViolation = true
+    local deepCheckSafe = true
+    local propertyName = nil 
+    local v1 = nil
+    local v2 = nil
     for property, value in pairs(t1) do
-        if(value==t1 || t2[property]==t2) then
-            error("Recursive tables are not supported")
-        end
         if(t2[property]) then
             if(type(value)!=type(t2[property])) then
-                return false
+                return false, property, value, t2[property]
             end
             if(type(value)=='table') then
-                deepCheckViolation = deepTypeCheck(t1[property],t2[property])
+                deepCheckSafe, propertyName, v1, v2 = deepTypeCheck(t1[property],t2[property])
             end
-        else
-            return false
         end
     end
-    return deepCheckViolation
+    return deepCheckSafe, propertyName, v1, v2
 end
 
-function checkIfList(myList)
-    for index,value in pairs(myList) do
-        if(type(index)!=number) then
+function deepMerge(t1, t2, catName)
+    local deepMergeSuccess = true
+    for property, value in pairs(t2) do
+        if(!string.EndsWith(property,"_IMMUTABLE")&&type(value)!="table") then
+            t1[property] = value
+        elseif(type(value)=="table") then
+            if(!t1[property]) then
+                t1[property] = {}
+            end
+            deepMergeSuccess = deepMerge(t1[property], t2[property])
+        elseif(string.EndsWith(property,"_IMMUTABLE")) then
+            error("Attempted to mutate immutable property in category '"..catName.."' on property '".. property.."'")
             return false
         end
     end
-    error("You must give your list/array an index i.e.\n properties = {\"value1\",\"value2\",\"value3\"} -> properties={myList={\"value1\",\"value2\",\"value3\"}}")
-    return true
+    return deepMergeSuccess
+end
+
+function checkIfList(cat)
+    for propName,prop in pairs(cat.gzt_properties) do
+        if type(prop)=="table" then
+            for index,value in pairs(prop) do
+                if(type(index)==number) then
+                    error("You must give your list/array an index i.e.\n properties = {\"value1\",\"value2\",\"value3\"} -> properties={myList={\"value1\",\"value2\",\"value3\"}}")
+                end
+            end
+        end
+    end
 end
 
 function collisonDetectorAndHandler(gzt_cats, catName, cat)
     if(gzt_cats[catName]) then
-        if deepTypeCheck(cat.properties, gzt_cats[catName].properties) then
-            
+        local deepCheck,propName,prop1,prop2 = deepTypeCheck(gzt_cats[catName].gzt_properties, cat.gzt_properties)
+        if deepCheck then
+            deepMerge(gzt_cats[catName], cat, catName)
+        else
+            error("Mismatched type on property '"..propName.."' of category '"..catName.."' on merge ("..type(prop1).." expected, got "..type(prop2)..")")
         end
     else
         gzt_cats[catName] = cat
@@ -119,10 +164,11 @@ function PostGamemodeLoaded()
         local GM_CATS = include(engine.ActiveGamemode().."/lua/gzt_defs/gzt_catdef.lua")
         for catName, cat in pairs(GM_CATS) do
             errorCheck(catName,cat)
-            cat.loadedBy="GM"
-            cat.editable = false
+            cat.gzt_loadedBy="GM"
+            cat.gzt_editable = false
             categoryFunctionProcessor(cat)
             categoryPropertyProcessor(cat)
+            checkIfList(cat)
             collisonDetectorAndHandler(GZT_CATS, catName, cat)
         end
     end
@@ -130,27 +176,33 @@ function PostGamemodeLoaded()
         local USERMAP_CATS = include("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_c.lua")
         for catName, cat in pairs(USERMAP_CATS) do
             errorCheck(catName, cat)
-            cat.loadedBy="USERMAP"
+            cat.gzt_loadedBy="USERMAP"
             categoryFunctionProcessor(cat)
             categoryPropertyProcessor(cat)
+            checkIfList(cat)
             collisonDetectorAndHandler(GZT_CATS, catName, cat)
         end
     end
     
     if file.Exists("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode()..".txt", "DATA") then
-        local SUCCESS, USER_CATS_FUNC = xpcall(CompileString, errorHandler, file.Read("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode()..".txt"), "gzt_user_cat_loader", false)
+        local SUCCESS, USER_CATS_FUNC, err = xpcall(CompileString, errorHandler, file.Read("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode()..".txt"), "gzt_user_cat_loader", false)
         local USER_CATS = {}
-        if(SUCCESS) then
+        if(SUCCESS && USER_CATS_FUNC!=nil) then
             USER_CATS = USER_CATS_FUNC()
+        else
+            print(err)
         end
         for catName, cat in pairs(USER_CATS) do
             errorCheck(catName, cat)
-            cat.loadedBy="USER"
+            cat.gzt_loadedBy="USER"
             categoryFunctionProcessor(cat)
             categoryPropertyProcessor(cat)
+            checkIfList(cat)
             collisonDetectorAndHandler(GZT_CATS, catName, cat)
         end
     end
+    PrintTable(GZT_CATS)
+    GZT_CATS.gmC1C1.gzt_functions.onExit:main()
 end
 hook.Add("PostGamemodeLoaded", "GZT_Loader_PostGamemodeLoaded", PostGamemodeLoaded)
 
