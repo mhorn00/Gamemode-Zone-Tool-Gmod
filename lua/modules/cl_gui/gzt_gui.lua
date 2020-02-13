@@ -6,9 +6,6 @@ include("modules/cl_gui/gzt_prgmTab.lua")
 
 if SERVER then return end
 
-CreateClientConVar("gzt_is_paused", 0, false, true, "Is player currently paused, used for input proccesing (Dont Touch)",0,1)
-CreateClientConVar("gzt_in_menu", 0, false, true, "Is player currently in the gzt GUI, used for input proccesing (Dont Touch)",0,1)
-
 local PANEL = {}
 
 function PANEL:Init()
@@ -16,7 +13,7 @@ function PANEL:Init()
     self:MakePopup()
     self:SetPos(ScrW()/2 - self:GetWide()/2, ScrH()/2 - self:GetTall()/2)
     self:MakeBasePanel()
-    --TODO:Hide on init
+    //TODO:Hide on init
 end
 
 function PANEL:MakeBasePanel()
@@ -43,7 +40,7 @@ end
 
 function PANEL:OnKeyCodePressed(keyCode)
     if keyCode == KEY_H then
-        --TODO: make this rebindable
+        //TODO: make this rebindable
         LocalPlayer():ConCommand("gzt_toggle_gui")
     end
 end

@@ -252,9 +252,6 @@ function SWEP:MakeBox() --SERVER ONLY
 		self.CurrentBox.Ent=ents.Create("gzt_zone")
 		self.CurrentBox.Ent:Spawn()
 	end
-	if(!self.CurrentBox.Ent.id) then
-		GZT_ZONES:Push(self.CurrentBox.Ent)
-	end
 	self.CurrentBox.Ent:Setup(self.CurrentBox.MinBound, self.CurrentBox.MaxBound)
 	self:SetCurrentEnt(self.CurrentBox.Ent)
 end

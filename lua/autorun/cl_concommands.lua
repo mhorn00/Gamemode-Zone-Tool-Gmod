@@ -2,6 +2,9 @@ AddCSLuaFile()
 
 if SERVER then return end
 
+CreateClientConVar("gzt_is_paused", 0, false, true, "Is player currently paused, used for input proccesing (Dont Touch)",0,1)
+CreateClientConVar("gzt_in_menu", 0, false, true, "Is player currently in the gzt GUI, used for input proccesing (Dont Touch)",0,1)
+
 concommand.Add("gzt_toggle_gui", function()
     local firstTime = false
     if !GZT_GUI then

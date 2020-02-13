@@ -7,16 +7,30 @@ local hookList = {--currently just ideas of what to implement at a later date
     // TODO: Actually enumerate the list of functions when we have them
 }
 
-local reserved = {
-    gzt_visible = {type="boolean", optional=true},
-    gzt_color = {type="table",optional=true},
-    gzt_displayName = {type="string",optional=true},
-    gzt_parents = {type="table", optional=false},
-    gzt_functions = {type="table", optional=true},
-    gzt_maxZones = {type="number", optional=true},
-    gzt_properties = {type="table",optional=true}, //TODO: makes sure these names arent used (specificaly: functions, properites, editable, and loadedBy)
-    gzt_editable = {type="boolean",optional=true},
-    gzt_loadedBy = {type="string",optional=true}
+local reservedCat = {
+    gzt_visible = {type="boolean", optional=true, reserved=false},
+    gzt_color = {type="table",optional=true, reserved=false},
+    gzt_displayName = {type="string",optional=true, reserved=false},
+    gzt_parents = {type="table", optional=false, reserved=false},
+    gzt_functions = {type="table", optional=true, reserved=true},
+    gzt_maxZones = {type="number", optional=true, reserved=false},
+    gzt_properties = {type="table",optional=true, reserved=true},
+    gzt_editable = {type="boolean",optional=true, reserved=true},
+    gzt_loadedBy = {type="string",optional=true, reserved=true}
+}
+
+local reservedZone = {
+    gzt_visible = {type="boolean", optional=true, reserved=false},
+    gzt_color = {type="table",optional=true, reserved=false},
+    gzt_parent = {type="string", optional=false, reserved=false},
+    gzt_functions = {type="table", optional=true, reserved=true},
+    gzt_properties = {type="table",optional=true, reserved=true},
+    gzt_editable = {type="boolean",optional=true, reserved=true},
+    gzt_loadedBy = {type="string",optional=true, reserved=true},
+    gzt_pos1 = {type="table",optional=false,reserved=false},
+    gzt_pos2 = {type="table",optional=false,reserved=false},
+    gzt_angle = {type="table",optional=false,reserved=false},
+    gzt_uuid = {type="string",optional=true, reserved=true}
 }
 
 function errorHandler(error)
@@ -42,8 +56,6 @@ function listJoin(givenList,joiner, startIndex, endIndex )
     end
     return ret
 end
-
-print(listJoin({"onEnter","main"},"_",2))
 
 function categoryFunctionProcessor(category)
     if category.gzt_functions == nil then
@@ -73,9 +85,15 @@ function categoryFunctionProcessor(category)
     end
 end
 
-function categoryPropertyProcessor(cat)
+function categoryPropertyProcessor(cat,isZone)
     if cat.properties == nil then
         cat.gzt_properties = {}
+    end
+    local reserved = {}
+    if(isZone) then
+        reserved = reservedZone
+    else
+        reserved = reservedCat
     end
     for propertyName,prop in pairs(cat) do
         if type(prop) != "function" then
@@ -87,12 +105,25 @@ function categoryPropertyProcessor(cat)
     end
 end
 
-function errorCheck(catName,cat) -- basic error check making sure that all reserved props are the right datatypes
+function errorCheck(catName,cat, isZone) -- basic error check making sure that all reserved props are the right datatypes
     //TODO: makes sure our reserved words arent used already
+    isZone = isZone and isZone or false
+    local reserved = {}
+    local errStringTypeName= ""
+    if(isZone) then
+        reserved = reservedZone
+        errStringTypeName="zone"
+    else
+        reserved = reservedCat
+        errStringTypeName="category"
+    end
     for k,v in pairs(reserved) do 
-        if ((!cat[k] or type(cat[k])!=v.type) and !v.optional) then
+        if ((!cat[k] || type(cat[k])!=v.type) && !v.optional) then
             print(cat[k])
-            error("Invalid definition of category '"..catName.."': Invalid definition of '"..k.."', expected '"..v.type.."' got '"..type(cat[k]).."'")
+            error("Invalid definition of "..errStringTypeName.." '"..catName.."': Invalid definition of '"..k.."', expected '"..v.type.."' got '"..type(cat[k]).."'")
+        end
+        if(cat[k] && v.reserved) then
+            error("Invalid definition of "..errStringTypeName.." '"..catName.."': Reserved property '"..k.."' is defined when that is for Gamemode Zonetool internal use. Please rename it!")
         end
     end
 end
@@ -145,16 +176,23 @@ function checkIfList(cat)
     end
 end
 
-function collisonDetectorAndHandler(gzt_cats, catName, cat)
-    if(gzt_cats[catName]) then
-        local deepCheck,propName,prop1,prop2 = deepTypeCheck(gzt_cats[catName].gzt_properties, cat.gzt_properties)
+function collisonDetectorAndHandler(gzt_table, name, obj, isZone)
+    if(gzt_table[name]) then
+        if(obj.overwrite != true) then
+            if(isZone) then
+                ErrorNoHalt("[Gamemode Zone Tool] WARNING: Overwriting zone "..name.." that already existed. Did you mean to do this?\n")
+            else
+                ErrorNoHalt("[Gamemode Zone Tool] WARNING: Overwriting category "..name.." that already existed. Did you mean to do this?\n")
+            end
+        end
+        local deepCheck,propName,prop1,prop2 = deepTypeCheck(gzt_table[name].gzt_properties, obj.gzt_properties)
         if deepCheck then
-            deepMerge(gzt_cats[catName], cat, catName)
+            deepMerge(gzt_table[name], obj, name)
         else
-            error("Mismatched type on property '"..propName.."' of category '"..catName.."' on merge ("..type(prop1).." expected, got "..type(prop2)..")")
+            error("Mismatched type on property '"..propName.."' of objegory '"..name.."' on merge ("..type(prop1).." expected, got "..type(prop2)..")")
         end
     else
-        gzt_cats[catName] = cat
+        gzt_table[name] = obj
     end
 end
 
@@ -167,9 +205,9 @@ function PostGamemodeLoaded()
             cat.gzt_loadedBy="GM"
             cat.gzt_editable = false
             categoryFunctionProcessor(cat)
-            categoryPropertyProcessor(cat)
+            categoryPropertyProcessor(cat,false)
             checkIfList(cat)
-            collisonDetectorAndHandler(GZT_CATS, catName, cat)
+            collisonDetectorAndHandler(GZT_CATS, catName, cat,false)
         end
     end
     if file.Exists("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_c.lua", "LUA") then
@@ -178,14 +216,14 @@ function PostGamemodeLoaded()
             errorCheck(catName, cat)
             cat.gzt_loadedBy="USERMAP"
             categoryFunctionProcessor(cat)
-            categoryPropertyProcessor(cat)
+            categoryPropertyProcessor(cat,false)
             checkIfList(cat)
-            collisonDetectorAndHandler(GZT_CATS, catName, cat)
+            collisonDetectorAndHandler(GZT_CATS, catName, cat,false)
         end
     end
     
-    if file.Exists("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode()..".txt", "DATA") then
-        local SUCCESS, USER_CATS_FUNC, err = xpcall(CompileString, errorHandler, file.Read("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode()..".txt"), "gzt_user_cat_loader", false)
+    if file.Exists("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."_c.txt", "DATA") then
+        local SUCCESS, USER_CATS_FUNC, err = xpcall(CompileString, errorHandler, file.Read("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."_c.txt"), "gzt_user_cat_loader", false)
         local USER_CATS = {}
         if(SUCCESS && USER_CATS_FUNC!=nil) then
             USER_CATS = USER_CATS_FUNC()
@@ -196,13 +234,58 @@ function PostGamemodeLoaded()
             errorCheck(catName, cat)
             cat.gzt_loadedBy="USER"
             categoryFunctionProcessor(cat)
-            categoryPropertyProcessor(cat)
+            categoryPropertyProcessor(cat,false)
             checkIfList(cat)
-            collisonDetectorAndHandler(GZT_CATS, catName, cat)
+            collisonDetectorAndHandler(GZT_CATS, catName, cat,false)
         end
     end
-    PrintTable(GZT_CATS)
-    GZT_CATS.gmC1C1.gzt_functions.onExit:main()
+    --[[
+        LOAD ZONES !
+    ]]
+    local GZT_ZONES = {}
+    if file.Exists(engine.ActiveGamemode().."/lua/gzt_defs/gzt_maps/"..game.GetMap()..".lua", "LUA") then --Looking for "<current gamemode>/lua/gzt_defs/gzt_maps/<current map>"
+        local GM_ZONES = include(engine.ActiveGamemode().."/lua/gzt_defs/gzt_maps/"..game.GetMap()..".lua")
+        for zoneId, zone in pairs(GM_ZONES) do
+            errorCheck(zoneId,zone, true)
+            zone.gzt_loadedBy="GM"
+            zone.gzt_editable = false
+            categoryFunctionProcessor(zone)
+            categoryPropertyProcessor(zone,true)
+            checkIfList(zone)
+            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone,true)
+        end
+    end
+    if file.Exists("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_z.lua", "LUA") then
+        local USERMAP_ZONES = include("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_z.lua")
+        for zoneId, zone in pairs(USERMAP_ZONES) do
+            errorCheck(zoneId, zone, true)
+            zone.gzt_loadedBy="USERMAP"
+            categoryFunctionProcessor(zone)
+            categoryPropertyProcessor(zone,true)
+            checkIfList(zone)
+            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone,true)
+        end
+    end
+    
+    if file.Exists("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."_z.txt", "DATA") then
+        local SUCCESS, USER_ZONE_FUNC, err = xpcall(CompileString, errorHandler, file.Read("gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."_z.txt"), "gzt_user_zone_loader", false)
+        local USER_ZONES = {}
+        if(SUCCESS && USER_ZONE_FUNC!=nil) then
+            USER_ZONES = USER_ZONE_FUNC()
+        else
+            print(err)
+        end
+        for zoneId, zone in pairs(USER_ZONES) do
+            errorCheck(zoneId, zone, true)
+            zone.gzt_loadedBy="USER"
+            categoryFunctionProcessor(zone)
+            categoryPropertyProcessor(zone,true)
+            checkIfList(zone)
+            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone,true)
+        end
+    end
+    GZT_INFO_WRAPPER:SetCategories(GZT_CATS)
+    GZT_INFO_WRAPPER:SetZones(GZT_ZONES)
 end
 hook.Add("PostGamemodeLoaded", "GZT_Loader_PostGamemodeLoaded", PostGamemodeLoaded)
 

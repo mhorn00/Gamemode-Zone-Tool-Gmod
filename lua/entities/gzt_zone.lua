@@ -63,7 +63,8 @@ function ENT:BuildCorners()
 	end
 end
 
-function ENT:Setup(min,max)
+function ENT:Setup(min,max,angle)//TODO: add angle to this
+	print(" IN SETUP !! !!")
 	if(self.CornerEnts && #self.CornerEnts != 0) then
 		for k,v in pairs(self.CornerEnts) do
 			if(IsValid(v)) then
@@ -73,6 +74,7 @@ function ENT:Setup(min,max)
 	end
 	vec1 = Vector(min)
 	vec2 = Vector(max)
+	print("vec1,vec2 for ent:",vec1, vec2)
 	OrderVectors(vec1,vec2)
 	self:SetPos(Lerp(0.5,vec1,vec2))
 	self:SetMinBound(vec1)
@@ -101,6 +103,7 @@ end
 
 
 function ENT:Think()
+	--print(self:GetPos())
 	if CLIENT then
 		if(self:GetMinBound() && self:GetMaxBound()) then
 			self:SetRenderBounds(self:GetMinBound()-self:GetPos(), self:GetMaxBound()-self:GetPos())
