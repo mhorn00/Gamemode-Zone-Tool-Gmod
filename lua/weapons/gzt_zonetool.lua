@@ -140,11 +140,11 @@ end
 SWEP["KF"..SWEP.Modes.Create..KEY_T] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released && SERVER then
-		if self.CurrentBox.Ent && IsValid(self.CurrentBox.Ent) then
-			if self.CurrentBox.Ent:GetDrawFaces() then
-				self.CurrentBox.Ent:SetDrawFaces(false)
+		if self.CurrentBox.gzt_entity && IsValid(self.CurrentBox.gzt_entity) then
+			if self.CurrentBox.gzt_entity:GetDrawFaces() then
+				self.CurrentBox.gzt_entity:SetDrawFaces(false)
 			else
-				self.CurrentBox.Ent:SetDrawFaces(true)
+				self.CurrentBox.gzt_entity:SetDrawFaces(true)
 			end
 		end
 	end
@@ -153,8 +153,8 @@ end
 SWEP["KF"..SWEP.Modes.Create..MOUSE_LEFT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then  
-		self.CurrentBox.MinBound = self:GetOwner():GetPos()
-		if self.CurrentBox && self.CurrentBox.MinBound && self.CurrentBox.MaxBound then
+		self.CurrentBox.gzt_pos1 = self:GetOwner():GetPos()
+		if self.CurrentBox && self.CurrentBox.gzt_pos1 && self.CurrentBox.gzt_pos2 then
 			self:MakeBox()
 		end
 	end
@@ -163,8 +163,8 @@ end
 SWEP["KF"..SWEP.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
-		self.CurrentBox.MaxBound = self:GetOwner():GetPos()
-		if self.CurrentBox && self.CurrentBox.MinBound && self.CurrentBox.MaxBound then
+		self.CurrentBox.gzt_pos2 = self:GetOwner():GetPos()
+		if self.CurrentBox && self.CurrentBox.gzt_pos1 && self.CurrentBox.gzt_pos2 then
 			self:MakeBox()
 		end
 	end
@@ -173,12 +173,12 @@ end
 SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_LEFT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
-		if self.CurrentBox.Ent then
+		if self.CurrentBox.gzt_entity then
 			self:DeleteBox()
-			self.CurrentBox.Ent=nil
+			self.CurrentBox.gzt_entity=nil
 		end
-		if self.CurrentBox.MinBound then
-			self.CurrentBox.MinBound=nil
+		if self.CurrentBox.gzt_pos1 then
+			self.CurrentBox.gzt_pos1=nil
 		end
 	end
 end
@@ -186,12 +186,12 @@ end
 SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then 
-		if self.CurrentBox.Ent then
+		if self.CurrentBox.gzt_entity then
 			self:DeleteBox()
-			self.CurrentBox.Ent=nil
+			self.CurrentBox.gzt_entity=nil
 		end
-		if self.CurrentBox.MaxBound then
-			self.CurrentBox.MaxBound=nil
+		if self.CurrentBox.gzt_pos2 then
+			self.CurrentBox.gzt_pos2=nil
 		end
 	end
 end
@@ -236,30 +236,30 @@ end
 SWEP["KF"..SWEP.Modes.Create..KEY_M] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released && SERVER then
-		if IsValid(self.CurrentBox.Ent) then
-			GZT_ZONES:Commit(self.CurrentBox.Ent, self:GetOwner())
-			self.CurrentBox.Ent:SetDrawFaces(false)
-			self.CurrentBox.MinBound= nil
-			self.CurrentBox.MaxBound= nil
-			self.CurrentBox.Ent = nil
+		if IsValid(self.CurrentBox.gzt_entity) then
+			GZT_ZONES:Commit(self.CurrentBox.gzt_entity, self:GetOwner())
+			self.CurrentBox.gzt_entity:SetDrawFaces(false)
+			self.CurrentBox.gzt_pos1= nil
+			self.CurrentBox.gzt_pos2= nil
+			self.CurrentBox.gzt_entity = nil
 		end
 	end
 end
 
 function SWEP:MakeBox() --SERVER ONLY
 	if CLIENT then return end
-	if !IsValid(self.CurrentBox.Ent) then
-		self.CurrentBox.Ent=ents.Create("gzt_zone")
-		self.CurrentBox.Ent:Spawn()
+	if !IsValid(self.CurrentBox.gzt_entity) then
+		self.CurrentBox.gzt_entity=ents.Create("gzt_zone")
+		self.CurrentBox.gzt_entity:Spawn()
 	end
-	self.CurrentBox.Ent:Setup(self.CurrentBox.MinBound, self.CurrentBox.MaxBound)
-	self:SetCurrentEnt(self.CurrentBox.Ent)
+	self.CurrentBox.gzt_entity:Setup(self.CurrentBox.gzt_pos1, self.CurrentBox.gzt_pos2)
+	self:SetCurrentEnt(self.CurrentBox.gzt_entity)
 end
 
 function SWEP:DeleteBox() 
 	if CLIENT then return end
-	if(self.CurrentBox && IsValid(self.CurrentBox.Ent)) then
-		self.CurrentBox.Ent:Remove()
+	if(self.CurrentBox && IsValid(self.CurrentBox.gzt_entity)) then
+		self.CurrentBox.gzt_entity:Remove()
 		self:SetCurrentEnt(nil)
 	end
 end
@@ -506,7 +506,6 @@ end
 --[[ current problems...
 
 	grab mag not working <- just use net or something
-	paused detection/process input running when paused
 	corner trailing behind cursor
 	corner beam 
 	corners still active when zone gone

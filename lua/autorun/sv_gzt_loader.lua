@@ -37,6 +37,15 @@ function errorHandler(error)
     print(error)
 end
 
+local random = math.random
+local function uuid()
+    local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+    return string.gsub(template, '[xy]', function (c)
+        local v = (c == 'x') and random(0, 0xf) or random(8, 0xb)
+        return string.format('%x', v)
+    end)
+end
+
 function listJoin(givenList,joiner, startIndex, endIndex )
 
     local ret = ""
@@ -197,6 +206,7 @@ function collisonDetectorAndHandler(gzt_table, name, obj, isZone)
 end
 
 function PostGamemodeLoaded()
+    print("POST GAMEMODE LOADED", CurTime())
     local GZT_CATS = {}
     if file.Exists(engine.ActiveGamemode().."/lua/gzt_defs/gzt_catdef.lua", "LUA") then --Looking for "<current gamemode>/lua/gzt_defs/gzt_catdef.lua"
         local GM_CATS = include(engine.ActiveGamemode().."/lua/gzt_defs/gzt_catdef.lua")
@@ -238,6 +248,10 @@ function PostGamemodeLoaded()
             checkIfList(cat)
             collisonDetectorAndHandler(GZT_CATS, catName, cat,false)
         end
+    end
+
+    for k,v in pairs(GZT_CATS) do
+        v.gzt_uuid = uuid()
     end
     --[[
         LOAD ZONES !
@@ -283,6 +297,10 @@ function PostGamemodeLoaded()
             checkIfList(zone)
             collisonDetectorAndHandler(GZT_ZONES, zoneId, zone,true)
         end
+    end
+
+    for k,v in pairs(GZT_ZONES) do
+        v.gzt_uuid = uuid()
     end
     GZT_INFO_WRAPPER:SetCategories(GZT_CATS)
     GZT_INFO_WRAPPER:SetZones(GZT_ZONES)
