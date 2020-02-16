@@ -302,8 +302,8 @@ function PostGamemodeLoaded()
     for k,v in pairs(GZT_ZONES) do
         v.gzt_uuid = uuid()
     end
-    GZT_INFO_WRAPPER:SetCategories(GZT_CATS)
-    GZT_INFO_WRAPPER:SetZones(GZT_ZONES)
+    GZT_WRAPPER:SetCategories(GZT_CATS)
+    GZT_WRAPPER:SetZones(GZT_ZONES)
 end
 hook.Add("PostGamemodeLoaded", "GZT_Loader_PostGamemodeLoaded", PostGamemodeLoaded)
 

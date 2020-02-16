@@ -4,6 +4,8 @@ if SERVER then return end
 
 CreateClientConVar("gzt_is_paused", 0, false, true, "Is player currently paused, used for input proccesing (Dont Touch)",0,1)
 CreateClientConVar("gzt_in_menu", 0, false, true, "Is player currently in the gzt GUI, used for input proccesing (Dont Touch)",0,1)
+CreateClientConVar("gzt_toolmode",1, false, true, "Current mode of the tool",1)
+CreateClientConVar("gzt_selected_category_parents","",false,true,"The parents of the currently selected category for making zones")
 
 concommand.Add("gzt_toggle_gui", function()
     local firstTime = false
@@ -21,6 +23,7 @@ concommand.Add("gzt_toggle_gui", function()
             GetConVar("gzt_in_menu"):SetInt(1)
         end
         GZT_GUI:SetVisible(true)
+        GZT_GUI.BasePanel.TabPane:SwitchToName(GZT_ZONETOOL.ModeList[GetConVar("gzt_toolmode"):GetInt()])
         GZT_GUI:AlphaTo(255, 0.2)
     end
 end)

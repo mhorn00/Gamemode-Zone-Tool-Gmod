@@ -29,20 +29,37 @@ function PANEL:Init()
     self.TreeView:DockMargin(0, 10, 0, 0)
     self.TreeView:Dock(FILL)
     self.TreeView.nodes = {}
+    self.TreeView.OnNodeSelected = function(self, node)
+        GZT_WRAPPER:GetCategoryUUID(table.KeyFromValue(self.nodes, node),"gzt_get_get_parent_uuid")
+    end
 
     self:InvalidateParent(true)
 end
 
+    net.Receive("gzt_get_get_parent_uuid", function()
+        local cat = net.ReadTable()
+        local parents = ""
+        for i,parent in pairs(cat.gzt_parents) do
+            parents = parents + parent
+            if i < #cat.gzt_parents then
+                parents = parents + ","
+            end
+        end
+        print(parents)
+        if ConVarExists("gzt_selected_category_parents") then
+            GetConVar("gzt_selected_category_parents"):SetString(parents)
+        end
+    end)
+
 function PANEL:Think()
     if self.cat_wait then
         //TODO do loading anim here
-        --LocalPlayer():ChatPrint("Waiting.....")
     end
 end
 
 function PANEL:GetCategories()
     self.cat_wait = true
-    GZT_INFO_WRAPPER:GetAllCategories("gzt_createPanel_receiveallcats")
+    GZT_WRAPPER:GetAllCategories("gzt_createPanel_receiveallcats")
 end
 
 function getIndexByName(cats, name)
@@ -85,7 +102,7 @@ function PANEL:PopulateCategories()
     end
     while node_count < #indexed_list do
         if TableEq(indexed_list[iter].gzt_parents, cur_parents) then
-            self.TreeView.nodes[indexed_list[iter].gzt_uuid] = parent_node:AddNode(indexed_list[iter].name, "materials/catagory_icon.png") --TODO: use display name if available
+            self.TreeView.nodes[indexed_list[iter].gzt_uuid] = parent_node:AddNode(indexed_list[iter].name, "materials/catagory_icon.png") //TODO: use display name if available
             parent_queue[#parent_queue+1] = indexed_list[iter].name
             node_count=node_count+1
         end

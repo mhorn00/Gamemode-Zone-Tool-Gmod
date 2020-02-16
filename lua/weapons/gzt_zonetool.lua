@@ -48,7 +48,7 @@ SWEP.Modes = {
 	Loading = "Loading",
 	Create = "Create",
 	Edit = "Edit",
-	Program = "Program Mode"
+	Program = "Program"
 }
 SWEP.ModeList = {
 	SWEP.Modes.Loading,
@@ -68,25 +68,26 @@ SWEP.ModifierKeys[KEY_LALT] = true
 SWEP.SelectedCorner = nil
 SWEP.GrabMagCL = -1
 
+if SERVER then
+	util.AddNetworkString("gzt_returnclientzoneid")
+end
+
+if CLIENT then
+	net.Receive("gzt_returnclientzoneid", function(len)
+		LocalPlayer():GetActiveWeapon().entId = net.ReadString()
+	end)
+end
+
 function SWEP:Initialize()
 	self.Initialized = true
     self:SetHoldType("revolver")
-	self:SetNumToolMode(1)
-	self:SetCurrentEnt(nil)
-	self:IncToolMode()
-end
-
-net.Receive("gzt_ZoneCommitSuccessful", function(len,ply)
-	SWEP:ZoneCommitSuccessful()
-end)
-
-function SWEP:ZoneCommitSuccessful()
-	self.CurrentBox.SetColor(Color(0,0,0,255))
-	self.CurrentEnt = nil	
+	if CLIENT then
+		self:SetToolMode("Loading")
+		self:IncToolMode()
+	end
 end
 
 function SWEP:SetupDataTables()
-	self:NetworkVar("Int", 0, "NumToolMode")
 	self:NetworkVar("Float",0,"GrabMag")
 	self:NetworkVar("Entity", 0, "CurrentEnt")
 end
@@ -155,7 +156,7 @@ SWEP["KF"..SWEP.Modes.Create..MOUSE_LEFT] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released then  
 		self.CurrentBox.gzt_pos1 = self:GetOwner():GetPos()
 		if self.CurrentBox && self.CurrentBox.gzt_pos1 && self.CurrentBox.gzt_pos2 then
-			self:MakeBox()
+			self:TellServerToCreateZone()
 		end
 	end
 end
@@ -165,8 +166,21 @@ SWEP["KF"..SWEP.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
 	if !KeyCombo.processed && !KeyCombo.released then
 		self.CurrentBox.gzt_pos2 = self:GetOwner():GetPos()
 		if self.CurrentBox && self.CurrentBox.gzt_pos1 && self.CurrentBox.gzt_pos2 then
-			self:MakeBox()
+			self:TellServerToCreateZone()
 		end
+	end
+end
+
+SWEP.TellServerToCreateZone = function(self)
+	local zoneObj = {}
+	zoneObj.gzt_pos1 = self.CurrentBox.gzt_pos1
+	zoneObj.gzt_pos2 = self.CurrentBox.gzt_pos2
+	zoneObj.gzt_parents = GetConVar("gzt_selected_category_parents"):GetString()
+	print("self entid", self.entId)
+	if self.entId == nil then
+		GZT_WRAPPER:ClientMakeZone(zoneObj)
+	else
+		GZT_WRAPPER:ClientUpdateZone(zoneObj, self.entId)
 	end
 end
 
@@ -233,56 +247,30 @@ SWEP["KF"..SWEP.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
 	end
 end
 
-SWEP["KF"..SWEP.Modes.Create..KEY_M] = function(self, KeyCombo)
-	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
-	if !KeyCombo.processed && !KeyCombo.released && SERVER then
-		if IsValid(self.CurrentBox.gzt_entity) then
-			GZT_ZONES:Commit(self.CurrentBox.gzt_entity, self:GetOwner())
-			self.CurrentBox.gzt_entity:SetDrawFaces(false)
-			self.CurrentBox.gzt_pos1= nil
-			self.CurrentBox.gzt_pos2= nil
-			self.CurrentBox.gzt_entity = nil
-		end
-	end
-end
-
-function SWEP:MakeBox() --SERVER ONLY
-	if CLIENT then return end
-	if !IsValid(self.CurrentBox.gzt_entity) then
-		self.CurrentBox.gzt_entity=ents.Create("gzt_zone")
-		self.CurrentBox.gzt_entity:Spawn()
-	end
-	self.CurrentBox.gzt_entity:Setup(self.CurrentBox.gzt_pos1, self.CurrentBox.gzt_pos2)
-	self:SetCurrentEnt(self.CurrentBox.gzt_entity)
-end
-
-function SWEP:DeleteBox() 
-	if CLIENT then return end
-	if(self.CurrentBox && IsValid(self.CurrentBox.gzt_entity)) then
-		self.CurrentBox.gzt_entity:Remove()
-		self:SetCurrentEnt(nil)
-	end
-end
-
 function SWEP:GetToolMode() 
-	return self.ModeList[self:GetNumToolMode()]
+	return self.ModeList[GetConVar("gzt_toolmode"):GetInt()]
 end
 
 function SWEP:SetToolMode(mode)
 	for k,v in pairs(self.ModeList) do
 		if v == mode then
-			self:SetNumToolMode(k)
+			if ConVarExists("gzt_toolmode") then
+				GetConVar("gzt_toolmode"):SetInt(k)
+			end
 			return
 		end
 	end
-	self:SetNumToolMode(2)
+	if ConVarExists("gzt_toolmode") then
+		GetConVar("gzt_toolmode"):SetInt(2)
+	end
 end
 
 function SWEP:IncToolMode()
-	if self:GetNumToolMode() >= #self.ModeList then
-		self:SetNumToolMode(2)
+	if !ConVarExists("gzt_toolmode") then return end 
+	if GetConVar("gzt_toolmode"):GetInt() >= #self.ModeList then
+		GetConVar("gzt_toolmode"):SetInt(2)
 	else
-		self:SetNumToolMode(self:GetNumToolMode()+1)
+		GetConVar("gzt_toolmode"):SetInt(GetConVar("gzt_toolmode"):GetInt()+1)
 	end
 end
 
@@ -335,6 +323,7 @@ end
 hook.Add("PlayerButtonUp","gzt_ZoneToolKeyUp", SWEP.PlayerButtonUp)
 
 function SWEP:ProcessInput()
+	if (SERVER) then return end
 	--CREATION OF KEY COMBOS
 	for i,key in pairs(self.KeyCreationQueue) do
 		if !self.KeyCreationQueue[i] then continue end
@@ -498,7 +487,7 @@ function SWEP:RenderScreen()
 		surface.DrawRect(0,0,256,256)
 		--Draw tool screen here
         draw.SimpleText("yeet", "GModToolScreen", 256/2, 256/3, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
-		draw.SimpleText(self.ModeList[self:GetNumToolMode()], "GModToolSubtitle", 256/2, 256/1.5, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
+		draw.SimpleText(self.ModeList[GetConVar("gzt_toolmode"):GetInt()], "GModToolSubtitle", 256/2, 256/1.5, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
 	cam.End2D()
 	render.PopRenderTarget()
 end

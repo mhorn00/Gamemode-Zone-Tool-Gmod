@@ -3,7 +3,7 @@
 if SERVER then return end
 
 include("modules/util/multicallback.lua")
-include("modules/gzt_info_wrapper.lua")
+include("modules/gzt_wrapper.lua")
 include("modules/cl_gui/gzt_gui.lua")
 
 -- function BuildTree(gzt_cats)
