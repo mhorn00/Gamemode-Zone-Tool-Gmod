@@ -50,9 +50,9 @@ if SERVER then
     net.Receive("gzt_getcategoryuuid", function(len,ply)
         net.Start(net.ReadString())
             local uuid = net.ReadString()
-            for k,v in pairs(self.gzt_categories) do
-                if(v.uuid==uuid) then
-                    net.WriteTable(copyNoFunctions(v))
+            for k,v in pairs(GZT_WRAPPER:GetClientCategories()) do
+                if(v.gzt_uuid==uuid) then
+                    net.WriteTable(v)
                     break
                 end
             end

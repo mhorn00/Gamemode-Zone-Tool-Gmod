@@ -6,7 +6,7 @@ CreateClientConVar("gzt_is_paused", 0, false, true, "Is player currently paused,
 CreateClientConVar("gzt_in_menu", 0, false, true, "Is player currently in the gzt GUI, used for input proccesing (Dont Touch)",0,1)
 CreateClientConVar("gzt_toolmode",1, false, true, "Current mode of the tool",1)
 CreateClientConVar("gzt_selected_category_parents","",false,true,"The parents of the currently selected category for making zones")
-
+CreateClientConVar("gzt_currently_editing_ent","", false, true, "Current entity ID that is being edited")
 concommand.Add("gzt_toggle_gui", function()
     local firstTime = false
     if !GZT_GUI then

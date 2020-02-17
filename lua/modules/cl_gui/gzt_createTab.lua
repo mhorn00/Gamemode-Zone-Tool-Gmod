@@ -2,6 +2,7 @@ AddCSLuaFile()
 
 if SERVER then 
     util.AddNetworkString("gzt_createPanel_receiveallcats")
+    util.AddNetworkString("gzt_get_parent_uuid")
     return 
 end
 
@@ -30,22 +31,26 @@ function PANEL:Init()
     self.TreeView:Dock(FILL)
     self.TreeView.nodes = {}
     self.TreeView.OnNodeSelected = function(self, node)
-        GZT_WRAPPER:GetCategoryUUID(table.KeyFromValue(self.nodes, node),"gzt_get_get_parent_uuid")
+        local uuid = table.KeyFromValue(self.nodes, node)
+        if uuid == "Root" then return end
+        GZT_WRAPPER:GetCategoryUUID(uuid,"gzt_get_parent_uuid")
     end
 
     self:InvalidateParent(true)
 end
 
-    net.Receive("gzt_get_get_parent_uuid", function()
+    net.Receive("gzt_get_parent_uuid", function()
         local cat = net.ReadTable()
         local parents = ""
-        for i,parent in pairs(cat.gzt_parents) do
-            parents = parents + parent
-            if i < #cat.gzt_parents then
-                parents = parents + ","
+        PrintTable(cat.gzt_parents)
+        if(#cat.gzt_parents!=0) then
+            for i,parent in pairs(cat.gzt_parents) do
+                parents = parents..parent
+                if i < #cat.gzt_parents then
+                    parents = parents..","
+                end
             end
         end
-        print(parents)
         if ConVarExists("gzt_selected_category_parents") then
             GetConVar("gzt_selected_category_parents"):SetString(parents)
         end
