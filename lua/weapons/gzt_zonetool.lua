@@ -74,9 +74,10 @@ end
 
 if CLIENT then
 	net.Receive("gzt_returnclientzoneid", function(len)
-		local entId =  net.ReadString()
-		LocalPlayer():GetActiveWeapon().entId = entId
-		GetConVar("gzt_currently_editing_ent"):SetString(entId)
+		local gzt_uuid =  net.ReadString()
+		print("Setting uuid to ", gzt_uuid)
+		LocalPlayer():GetActiveWeapon().gzt_uuid = gzt_uuid
+		GetConVar("gzt_currently_editing_ent"):SetString(gzt_uuid)
 	end)
 end
 
@@ -177,12 +178,18 @@ SWEP.TellServerToCreateZone = function(self)
 	local zoneObj = {}
 	zoneObj.gzt_pos1 = self.CurrentBox.gzt_pos1
 	zoneObj.gzt_pos2 = self.CurrentBox.gzt_pos2
-	zoneObj.gzt_parents = GetConVar("gzt_selected_category_parents"):GetString()
-	print("self entid", self.entId)
-	if self.entId == "" then
+	if GetConVar("gzt_selected_category_uuid"):GetString() == "" then
+		local namelist = GetConVar("gzt_selected_category_uuid"):GetString()
+		zoneObj.gzt_parent = namelist
+	else
+		zoneObj.gzt_parent = ""
+	end
+	print(self.gzt_uuid)
+	if self.gzt_uuid == "" or self.gzt_uuid==nil then
 		GZT_WRAPPER:ClientMakeZone(zoneObj)
 	else
-		GZT_WRAPPER:ClientUpdateZone(zoneObj, self.entId)
+		-- print("entId prior to clientupdatezone",self.entId)
+		GZT_WRAPPER:ClientUpdateZone(zoneObj, self.gzt_uuid)
 	end
 end
 

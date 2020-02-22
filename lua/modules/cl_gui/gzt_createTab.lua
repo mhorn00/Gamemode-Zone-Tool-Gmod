@@ -3,6 +3,7 @@ AddCSLuaFile()
 if SERVER then 
     util.AddNetworkString("gzt_createPanel_receiveallcats")
     util.AddNetworkString("gzt_get_parent_uuid")
+    util.AddNetworkString("gzt_createPanel_receiveallzones")
     return 
 end
 
@@ -19,12 +20,7 @@ function PANEL:Init()
     end
     self.GamemodeSelect:SetValue(engine.ActiveGamemode())
 
-    self.testBtn = vgui.Create("DButton", self, "testbtn")
-    self.testBtn:DockMargin(500, 0, 0, 0)
-    self.testBtn:Dock(TOP)
-    self.testBtn.DoClick = function()
-        self:GetCategories()
-    end
+    self.populated=false//TODO make this pop cats and pop zones
 
     self.TreeView = vgui.Create("DTree", self, "TreeView")
     self.TreeView:DockMargin(0, 10, 0, 0)
@@ -33,28 +29,20 @@ function PANEL:Init()
     self.TreeView.OnNodeSelected = function(self, node)
         local uuid = table.KeyFromValue(self.nodes, node)
         if uuid == "Root" then return end
-        GZT_WRAPPER:GetCategoryUUID(uuid,"gzt_get_parent_uuid")
+        if(node.isCategory) then
+            GZT_WRAPPER:GetCategoryUUID(uuid,"gzt_get_parent_uuid")
+        end
     end
 
     self:InvalidateParent(true)
 end
 
-    net.Receive("gzt_get_parent_uuid", function()
-        local cat = net.ReadTable()
-        local parents = ""
-        PrintTable(cat.gzt_parents)
-        if(#cat.gzt_parents!=0) then
-            for i,parent in pairs(cat.gzt_parents) do
-                parents = parents..parent
-                if i < #cat.gzt_parents then
-                    parents = parents..","
-                end
-            end
-        end
-        if ConVarExists("gzt_selected_category_parents") then
-            GetConVar("gzt_selected_category_parents"):SetString(parents)
-        end
-    end)
+net.Receive("gzt_get_parent_uuid", function()
+    local cat = net.ReadTable()
+    if ConVarExists("gzt_selected_category_uuid") then
+        GetConVar("gzt_selected_category_uuid"):SetString(cat.gzt_uuid)
+    end
+end)
 
 function PANEL:Think()
     if self.cat_wait then
@@ -67,9 +55,9 @@ function PANEL:GetCategories()
     GZT_WRAPPER:GetAllCategories("gzt_createPanel_receiveallcats")
 end
 
-function getIndexByName(cats, name)
+function getIndexByUUID(cats, uuid)
     for k,v in pairs(cats) do
-        if(v.name==name) then
+        if v.gzt_uuid == uuid then
             return k
         end
     end
@@ -94,6 +82,7 @@ end
 
 function PANEL:PopulateCategories()
     self.cat_wait = false
+    self.populated = true
     self.TreeView.nodes["Root"] = self.TreeView:AddNode("Root","materials/catagory_icon.png")
     local cur_parents = {}
     local parent_queue = {}
@@ -102,41 +91,84 @@ function PANEL:PopulateCategories()
     local iter = 1
     local indexed_list = {}
     for k,v in pairs(self.gzt_categories) do
-        v["name"]=k
         indexed_list[#indexed_list+1]=v
     end
     while node_count < #indexed_list do
         if TableEq(indexed_list[iter].gzt_parents, cur_parents) then
-            self.TreeView.nodes[indexed_list[iter].gzt_uuid] = parent_node:AddNode(indexed_list[iter].name, "materials/catagory_icon.png") //TODO: use display name if available
-            parent_queue[#parent_queue+1] = indexed_list[iter].name
+            self.TreeView.nodes[indexed_list[iter].gzt_uuid] = parent_node:AddNode(indexed_list[iter].gzt_internalname, "materials/catagory_icon.png") //TODO: use display name if available
+            self.TreeView.nodes[indexed_list[iter].gzt_uuid].isCategory = true
+            parent_queue[#parent_queue+1] = indexed_list[iter].gzt_uuid
             node_count=node_count+1
         end
         if iter >= #indexed_list then
-            cur_parents = table.Copy(indexed_list[getIndexByName(indexed_list,parent_queue[1])].gzt_parents)
+            local i = getIndexByUUID(indexed_list,parent_queue[1])
+            cur_parents = table.Copy(indexed_list[i].gzt_parents)
             cur_parents[#cur_parents+1] = parent_queue[1]
-            parent_node = self.TreeView.nodes[indexed_list[getIndexByName(indexed_list,parent_queue[1])].gzt_uuid]
+            parent_node = self.TreeView.nodes[indexed_list[i].gzt_uuid]
             table.remove(parent_queue, 1)
             iter = 1
         else
             iter = iter + 1
         end
     end
+    self:GetZones()
 end
 
-function PANEL:RefreshCategory(catName, catObj)
+function PANEL:UpdateCategory(catName, catObj)
 
 end
 
-net.Receive("gzt_category_refresh", function(len)
-    local catName = net.ReadString()
+net.Receive("gzt_updateclientcategory", function(len)
+    local uuid = net.ReadString()
     local catObj = net.ReadTable()
-    GZT_GUI.BasePanel.TabPane.CreateTab:RefreshCategory(catName, catObj)
+    GZT_GUI.BasePanel.TabPane.CreateTab:UpdateCategory(uuid, catObj)
 end)
 
 net.Receive("gzt_createPanel_receiveallcats", function(len)
-    local received = net.ReadTable()
-    GZT_GUI.BasePanel.TabPane.CreateTab.gzt_categories = received
+    GZT_GUI.BasePanel.TabPane.CreateTab.gzt_categories = net.ReadTable()
     GZT_GUI.BasePanel.TabPane.CreateTab:PopulateCategories()
+end)
+
+function PANEL:GetZones()
+    self.zone_wait = true
+    GZT_WRAPPER:GetAllZones("gzt_createPanel_receiveallzones")
+end
+
+function PANEL:PopulateZones()
+    self.zone_wait = false
+    PrintTable(self.gzt_zones)
+    for uuid,zone in pairs(self.gzt_zones) do
+        if zone.gzt_parent then
+            self.TreeView.nodes[uuid] = self.TreeView.nodes[zone.gzt_parent]:AddNode(zone.gzt_internalname,"materials/zone_icon.png") //TODO: use display name
+            if zone.gzt_color then
+                self.TreeView.nodes[uuid].Icon:SetImageColor(zone.gzt_color)
+            else
+                self.TreeView.nodes[uuid].Icon:SetImageColor(Color(0,0,0,255))
+            end
+        else 
+            self.TreeView.nodes[uuid] = self.TreeView.nodes["Root"]:AddNode(zone.gzt_internalname,"materials/zone_icon.png") //TODO: use display name
+            if zone.gzt_color then
+                self.TreeView.nodes[uuid].Icon:SetImageColor(zone.gzt_color)
+            else
+                self.TreeView.nodes[uuid].Icon:SetImageColor(Color(0,0,0,255))
+            end
+        end
+    end
+end
+
+function PANEL:UpdateZone(zoneName,zone)
+
+end
+
+net.Receive("gzt_updateclientzone", function(len)
+    local uuid = net.ReadString()
+    local zone = net.ReadTable()
+    GZT_GUI.BasePanel.TabPane.CreateTab:UpdateCategory(uuid, zone)
+end)
+
+net.Receive("gzt_createPanel_receiveallzones", function(len)
+    GZT_GUI.BasePanel.TabPane.CreateTab.gzt_zones = net.ReadTable()
+    GZT_GUI.BasePanel.TabPane.CreateTab:PopulateZones()
 end)
 
 vgui.Register("gzt_CreateTab", PANEL, "DPanel")

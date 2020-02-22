@@ -27,8 +27,13 @@ if SERVER then
     util.AddNetworkString("gzt_GetAllCategories")
     util.AddNetworkString("gzt_ClientMakeZone")
     util.AddNetworkString("gzt_ClientUpdateZone")
+    util.AddNetworkString("gzt_ReturnClientZoneUUID")
+    util.AddNetworkString("gzt_GetCategoryByUUID")
+    util.AddNetworkString("gzt_GetAllZones")
+    util.AddNetworkString("gzt_GetZoneByUUID")
+    util.AddNetworkString("gzt_UpdateClientZones")
+    util.AddNetworkString("gzt_UpdateClientCategory")
     util.AddNetworkString("gzt_returnclientzoneid")
-    util.AddNetworkString("gzt_getcategoryuuid")
     
     net.Receive("gzt_GetAllCategories", function(len, ply)
         net.Start(net.ReadString())
@@ -36,26 +41,35 @@ if SERVER then
         net.Send(ply)
     end)
 
+    net.Receive("gzt_GetAllZones", function(len, ply)
+        net.Start(net.ReadString())
+            net.WriteTable(GZT_WRAPPER:GetClientZones())
+        net.Send(ply)
+    end)
+
+    net.Receive("gzt_GetZoneByUUID", function(len, ply)
+        net.Start(net.ReadString())
+            net.WriteTable(copyNoFunctions(GZT_WRAPPER.gzt_zones[net.ReadString()]))
+        net.Send(ply)
+    end)
+
     net.Receive("gzt_ClientMakeZone", function(len, ply)
         local zoneObj = net.ReadTable()
-        GZT_WRAPPER:MakeZone(zoneObj,ply)
+        local myUuid = GZT_WRAPPER:MakeZone(zoneObj,ply)
+        net.Start("gzt_returnclientzoneid")
+            net.WriteString(myUuid)
+        net.Send(ply)
     end)
 
     net.Receive("gzt_ClientUpdateZone", function(len, ply)
-        local entId = net.ReadString()
+        local uuid = net.ReadString()
         local zoneObj = net.ReadTable()
-        GZT_WRAPPER:UpdateZone(entId, zoneObj)
+        GZT_WRAPPER:UpdateZone(uuid, zoneObj)
     end)
 
-    net.Receive("gzt_getcategoryuuid", function(len,ply)
+    net.Receive("gzt_GetCategoryByUUID", function(len,ply)
         net.Start(net.ReadString())
-            local uuid = net.ReadString()
-            for k,v in pairs(GZT_WRAPPER:GetClientCategories()) do
-                if(v.gzt_uuid==uuid) then
-                    net.WriteTable(v)
-                    break
-                end
-            end
+            net.WriteTable(copyNoFunctions(GZT_WRAPPER.gzt_categories[net.ReadString()]))
         net.Send(ply)
     end)
 
@@ -63,54 +77,96 @@ if SERVER then
         return copyNoFunctions(self.gzt_categories)
     end
 
+    function GZT_WRAPPER:GetClientZones()
+        return copyNoFunctions(self.gzt_zones)
+    end
+
     function GZT_WRAPPER:SetCategories(cats)
-        self.gzt_categories = cats
+        local uuidIndexed = {}
+        for k,v in pairs(cats) do
+            v.gzt_internalname=k
+            uuidIndexed[v.gzt_uuid] = v
+        end
+        for uuid,cat in pairs(uuidIndexed) do
+            for i,parentName in pairs(cat.gzt_parents) do
+                for search_uuid,search_cat in pairs(uuidIndexed) do
+                    if search_cat.gzt_internalname == parentName then
+                        uuidIndexed[uuid].gzt_parents[i] = search_uuid
+                    end
+                end 
+            end
+        end
+        self.gzt_categories = uuidIndexed
     end
 
     function GZT_WRAPPER:SetZones(zones)
-        self.gzt_zones=zones
+        local uuidIndexed = {}
+        for k,v in pairs(zones) do
+            v.gzt_internalname=k
+            for uuid,cat in pairs(self.gzt_categories) do
+                if cat.gzt_internalname == v.gzt_parent then
+                    v.gzt_parent=uuid
+                end
+            end
+            uuidIndexed[v.gzt_uuid] = v
+        end
+        self.gzt_zones=uuidIndexed
     end
 
-    function GZT_WRAPPER:InitZones()  
-        for k,v in pairs(self.gzt_zones) do
-            self.gzt_zones[k].gzt_entity = self:MakeZone(v)
+    function GZT_WRAPPER:InitZones() 
+        print("PRE MAKEZONES")
+        PrintTable(self.gzt_zones)
+        for uuid,zone in pairs(self.gzt_zones) do
+            self:MakeZone(zone)
         end
+    end
+
+    local random = math.random
+    local function uuid()
+        local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+        return string.gsub(template, '[xy]', function (c)
+            local v = (c == 'x') and random(0, 0xf) or random(8, 0xb)
+            return string.format('%x', v)
+        end)
     end
 
     function GZT_WRAPPER:MakeZone(zoneObj, ply)
         local curZone = ents.Create("gzt_zone")
         local pos1 = Vector(zoneObj.gzt_pos1.x,zoneObj.gzt_pos1.y,zoneObj.gzt_pos1.z)
         local pos2 = Vector(zoneObj.gzt_pos2.x,zoneObj.gzt_pos2.y,zoneObj.gzt_pos2.z)
-
-        curZone:Setup(pos1, pos2, zoneObj.gzt_angle)
-        curZone:Spawn()
-        local parentNames = zoneObj.gzt_parents
-        print(parentNames)
-        local parentNameList = string.Split(parentNames, ",")
-        local parent = parentNameList[#parentNameList]
-        -- self.gzt_zones[]
-        zoneObj.gzt_ent = curZone
-        local storeName = FindAvailableName(parent)
-        self.gzt_zones[storeName] = zoneObj
-        if(ply) then
-            print(storeName)
-            net.Start("gzt_returnclientzoneid")
-                net.WriteString(storeName)
-            net.Send(ply)
+        local angle = nil
+        if(zoneObj.gzt_angle) then
+            angle = Angle(zoneObj.gzt_angle.p,zoneObj.gzt_angle.y,zoneObj.gzt_angle.r)
         end
-        return curZone
+        curZone:Setup(pos1, pos2, angle)
+        curZone:Spawn()
+        local tempuuid = zoneObj.gzt_uuid
+        if(!zoneObj.gzt_uuid) then
+            tempuuid = uuid()
+        end
+        self.gzt_zones[tempuuid] = zoneObj
+        self.gzt_zones[tempuuid].gzt_uuid = tempuuid
+        self.gzt_zones[tempuuid].gzt_entity = curZone
+        self:UpdateClientZone(self.gzt_zones[tempuuid])
+        return self.gzt_zones[tempuuid].gzt_uuid
     end
 
-    function GZT_WRAPPER:UpdateZone(entId, zoneObj)
-        local zoneObj = self.gzt_zones[entId]
-        if zoneObj == nil then
+    function GZT_WRAPPER:UpdateZone(uuid, zoneObj)
+        if self.gzt_zones[uuid]==nil then
+            self:MakeZone(zoneObj, ply)
             return
         end
-
-        zoneObj.gzt_ent:Setup(zoneObj.gzt_pos1, zoneObj.gzt_pos2, zoneObj.gzt_angle)
+        local serverZoneObj = self.gzt_zones[uuid]
+        if serverZoneObj == nil then
+            return
+        end
+        if IsValid(serverZoneObj.gzt_entity) then
+            serverZoneObj.gzt_entity:Setup(zoneObj.gzt_pos1, zoneObj.gzt_pos2, zoneObj.gzt_angle)
+        end
+        self:UpdateClientZone(zoneObj)
     end
 
-    function FindAvailableName(categoryName)
+    function FindAvailableName(categoryName)--UPDATE ME
         if GZT_WRAPPER.gzt_zones[categoryName] then
             local extraNum = 1
             while GZT_WRAPPER.gzt_zones[categoryName.." "..extraNum] != nil do
@@ -120,39 +176,49 @@ if SERVER then
         end
         return categoryName
     end
+
+    function GZT_WRAPPER:UpdateClientZone(zoneObj)
+        net.Start("gzt_UpdateClientZones")
+            net.WriteTable(copyNoFunctions(zoneObj))
+        net.Broadcast()
+    end
     
+    function GZT_WRAPPER:UpdateClientCategory(uuid,categoryObj)
+        net.Start("gzt_UpdateClientCategory")
+            net.WriteString(uuid)
+            net.WriteTable(copyNoFunctions(categoryObj))
+        net.Broadcast()
+    end
+
     function InitPostEntity()
         GZT_WRAPPER:InitZones()
     end
     hook.Add("InitPostEntity", "GZT_BeforeLoadEntities", InitPostEntity)
-    
 else --CLIENT
-    function GZT_WRAPPER:GetAllZones()
-
+    function GZT_WRAPPER:GetAllZones(cb)
+        net.Start("gzt_GetAllZones")
+            net.WriteString(cb)
+        net.SendToServer()
     end
 
-    function GZT_WRAPPER:GetZone(zoneName)
-
-    end
-
-    function GZT_WRAPPER:GetZoneUUID(id)
-
-    end
-    
-    function GZT_WRAPPER:ClientMakeZone(obj)
-
+    function GZT_WRAPPER:GetZoneUUID(id,cb)
+        net.Start("gzt_GetZoneByUUID")
+            net.WriteString(cb)
+            net.WriteString(id)
+        net.SendToServer()
     end
 
     function GZT_WRAPPER:ClientMakeZone(zoneObj)
-        print("teling server to make zone")
         net.Start("gzt_ClientMakeZone")
+            -- net.WriteString(cb)
+            print(zoneObj)
+            PrintTable(zoneObj)
             net.WriteTable(zoneObj)
         net.SendToServer()
     end
 
     
     function GZT_WRAPPER:ClientUpdateZone(zoneObj, entId)
-        print("teling server to update zone")
         net.Start("gzt_ClientUpdateZone")
             net.WriteString(entId)
             net.WriteTable(zoneObj)
@@ -160,7 +226,7 @@ else --CLIENT
     end
 
     function GZT_WRAPPER:GetCategoryUUID(uuid, cb)
-        net.Start("gzt_getcategoryuuid")
+        net.Start("gzt_GetCategoryByUUID")
             net.WriteString(cb)
             net.WriteString(uuid)
         net.SendToServer()

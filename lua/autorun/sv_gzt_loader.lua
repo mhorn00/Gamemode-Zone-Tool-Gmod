@@ -16,7 +16,8 @@ local reservedCat = {
     gzt_maxZones = {type="number", optional=true, reserved=false},
     gzt_properties = {type="table",optional=true, reserved=true},
     gzt_editable = {type="boolean",optional=true, reserved=true},
-    gzt_loadedBy = {type="string",optional=true, reserved=true}
+    gzt_loadedBy = {type="string",optional=true, reserved=true},
+    gzt_uuid = {type="string",optional=true, reserved=true}
 }
 
 local reservedZone = {
@@ -47,7 +48,6 @@ local function uuid()
 end
 
 function listJoin(givenList,joiner, startIndex, endIndex )
-
     local ret = ""
     startIndex = startIndex and startIndex or 1
     endIndex = endIndex and endIndex or #givenList
@@ -66,7 +66,7 @@ function listJoin(givenList,joiner, startIndex, endIndex )
     return ret
 end
 
-function categoryFunctionProcessor(category)
+function FunctionProcessor(category)
     if category.gzt_functions == nil then
         category.gzt_functions = {}
     end
@@ -94,7 +94,7 @@ function categoryFunctionProcessor(category)
     end
 end
 
-function categoryPropertyProcessor(cat,isZone)
+function PropertyProcessor(cat,isZone)
     if cat.properties == nil then
         cat.gzt_properties = {}
     end
@@ -128,7 +128,6 @@ function errorCheck(catName,cat, isZone) -- basic error check making sure that a
     end
     for k,v in pairs(reserved) do 
         if ((!cat[k] || type(cat[k])!=v.type) && !v.optional) then
-            print(cat[k])
             error("Invalid definition of "..errStringTypeName.." '"..catName.."': Invalid definition of '"..k.."', expected '"..v.type.."' got '"..type(cat[k]).."'")
         end
         if(cat[k] && v.reserved) then
@@ -189,9 +188,9 @@ function collisonDetectorAndHandler(gzt_table, name, obj, isZone)
     if(gzt_table[name]) then
         if(obj.overwrite != true) then
             if(isZone) then
-                ErrorNoHalt("[Gamemode Zone Tool] WARNING: Overwriting zone "..name.." that already existed. Did you mean to do this?\n")
+                print("[Gamemode Zone Tool] WARNING: Overwriting zone "..name.." that already existed. Did you mean to do this?\n")
             else
-                ErrorNoHalt("[Gamemode Zone Tool] WARNING: Overwriting category "..name.." that already existed. Did you mean to do this?\n")
+                print("[Gamemode Zone Tool] WARNING: Overwriting category "..name.." that already existed. Did you mean to do this?\n")
             end
         end
         local deepCheck,propName,prop1,prop2 = deepTypeCheck(gzt_table[name].gzt_properties, obj.gzt_properties)
@@ -206,7 +205,6 @@ function collisonDetectorAndHandler(gzt_table, name, obj, isZone)
 end
 
 function PostGamemodeLoaded()
-    print("POST GAMEMODE LOADED", CurTime())
     local GZT_CATS = {}
     if file.Exists(engine.ActiveGamemode().."/lua/gzt_defs/gzt_catdef.lua", "LUA") then --Looking for "<current gamemode>/lua/gzt_defs/gzt_catdef.lua"
         local GM_CATS = include(engine.ActiveGamemode().."/lua/gzt_defs/gzt_catdef.lua")
@@ -214,10 +212,11 @@ function PostGamemodeLoaded()
             errorCheck(catName,cat)
             cat.gzt_loadedBy="GM"
             cat.gzt_editable = false
-            categoryFunctionProcessor(cat)
-            categoryPropertyProcessor(cat,false)
+            cat.gzt_uuid = uuid()
+            FunctionProcessor(cat)
+            PropertyProcessor(cat,false)
             checkIfList(cat)
-            collisonDetectorAndHandler(GZT_CATS, catName, cat,false)
+            collisonDetectorAndHandler(GZT_CATS, catName, cat, false)
         end
     end
     if file.Exists("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_c.lua", "LUA") then
@@ -225,10 +224,11 @@ function PostGamemodeLoaded()
         for catName, cat in pairs(USERMAP_CATS) do
             errorCheck(catName, cat)
             cat.gzt_loadedBy="USERMAP"
-            categoryFunctionProcessor(cat)
-            categoryPropertyProcessor(cat,false)
+            cat.gzt_uuid = uuid()
+            FunctionProcessor(cat)
+            PropertyProcessor(cat,false)
             checkIfList(cat)
-            collisonDetectorAndHandler(GZT_CATS, catName, cat,false)
+            collisonDetectorAndHandler(GZT_CATS, catName, cat, false)
         end
     end
     
@@ -243,18 +243,15 @@ function PostGamemodeLoaded()
         for catName, cat in pairs(USER_CATS) do
             errorCheck(catName, cat)
             cat.gzt_loadedBy="USER"
-            categoryFunctionProcessor(cat)
-            categoryPropertyProcessor(cat,false)
+            cat.gzt_uuid = uuid()
+            FunctionProcessor(cat)
+            PropertyProcessor(cat,false)
             checkIfList(cat)
-            collisonDetectorAndHandler(GZT_CATS, catName, cat,false)
+            collisonDetectorAndHandler(GZT_CATS, catName, cat, false)
         end
     end
-
-    for k,v in pairs(GZT_CATS) do
-        v.gzt_uuid = uuid()
-    end
     --[[
-        LOAD ZONES !
+        LOAD ZONES!
     ]]
     local GZT_ZONES = {}
     if file.Exists(engine.ActiveGamemode().."/lua/gzt_defs/gzt_maps/"..game.GetMap()..".lua", "LUA") then --Looking for "<current gamemode>/lua/gzt_defs/gzt_maps/<current map>"
@@ -263,10 +260,11 @@ function PostGamemodeLoaded()
             errorCheck(zoneId,zone, true)
             zone.gzt_loadedBy="GM"
             zone.gzt_editable = false
-            categoryFunctionProcessor(zone)
-            categoryPropertyProcessor(zone,true)
+            zone.gzt_uuid = uuid()
+            FunctionProcessor(zone)
+            PropertyProcessor(zone,true)
             checkIfList(zone)
-            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone,true)
+            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone, true)
         end
     end
     if file.Exists("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_z.lua", "LUA") then
@@ -274,10 +272,11 @@ function PostGamemodeLoaded()
         for zoneId, zone in pairs(USERMAP_ZONES) do
             errorCheck(zoneId, zone, true)
             zone.gzt_loadedBy="USERMAP"
-            categoryFunctionProcessor(zone)
-            categoryPropertyProcessor(zone,true)
+            zone.gzt_uuid = uuid()
+            FunctionProcessor(zone)
+            PropertyProcessor(zone,true)
             checkIfList(zone)
-            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone,true)
+            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone, true)
         end
     end
     
@@ -292,15 +291,12 @@ function PostGamemodeLoaded()
         for zoneId, zone in pairs(USER_ZONES) do
             errorCheck(zoneId, zone, true)
             zone.gzt_loadedBy="USER"
-            categoryFunctionProcessor(zone)
-            categoryPropertyProcessor(zone,true)
+            zone.gzt_uuid = uuid()
+            FunctionProcessor(zone)
+            PropertyProcessor(zone,true)
             checkIfList(zone)
-            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone,true)
+            collisonDetectorAndHandler(GZT_ZONES, zoneId, zone, true)
         end
-    end
-
-    for k,v in pairs(GZT_ZONES) do
-        v.gzt_uuid = uuid()
     end
     GZT_WRAPPER:SetCategories(GZT_CATS)
     GZT_WRAPPER:SetZones(GZT_ZONES)
