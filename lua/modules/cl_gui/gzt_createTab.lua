@@ -80,6 +80,32 @@ function TableEq(t1,t2)
     return true
 end
 
+function CategorySort(a,b)
+    --Sorts categories by smallest number of parents first and alpebetical by name if same parents length
+    if #a.gzt_parents > #b.gzt_parents then
+        return false
+    elseif #a.gzt_parents < #b.gzt_parents then
+        return true
+    else 
+        local aName = a.gzt_internalname
+        local bName = b.gzt_internalname
+        if a.gzt_displayName != nil && a.gzt_displayName != "" then
+            bName = b.gzt_displayName
+        end
+        if b.gzt_displayName != nil && b.gzt_displayName != "" then
+            bName = b.gzt_displayName
+        end
+        if string.compare(aName,bName) > 0 then
+            return false
+        elseif string.compare(aName,bName) < 0 then
+            return true
+        else
+            return true
+        end
+    end
+    return false
+end
+
 function PANEL:PopulateCategories()
     self.cat_wait = false
     self.populated = true
@@ -93,6 +119,7 @@ function PANEL:PopulateCategories()
     for k,v in pairs(self.gzt_categories) do
         indexed_list[#indexed_list+1]=v
     end
+    table.sort(indexed_list, CategorySort)
     while node_count < #indexed_list do
         if TableEq(indexed_list[iter].gzt_parents, cur_parents) then
             self.TreeView.nodes[indexed_list[iter].gzt_uuid] = parent_node:AddNode(indexed_list[iter].gzt_internalname, "materials/catagory_icon.png") //TODO: use display name if available
@@ -136,7 +163,6 @@ end
 
 function PANEL:PopulateZones()
     self.zone_wait = false
-    PrintTable(self.gzt_zones)
     for uuid,zone in pairs(self.gzt_zones) do
         if zone.gzt_parent then
             self.TreeView.nodes[uuid] = self.TreeView.nodes[zone.gzt_parent]:AddNode(zone.gzt_internalname,"materials/zone_icon.png") //TODO: use display name
