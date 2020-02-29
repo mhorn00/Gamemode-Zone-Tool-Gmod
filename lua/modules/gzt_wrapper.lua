@@ -36,9 +36,7 @@ if SERVER then
     util.AddNetworkString("gzt_returnclientzoneid")
     
     net.Receive("gzt_GetAllCategories", function(len, ply)
-        net.Start(net.ReadString())
-            net.WriteTable(GZT_WRAPPER:GetClientCategories())
-        net.Send(ply)
+        net.SendChunks(net.ReadString(), GZT_WRAPPER:GetClientCategories(), ply)
     end)
 
     net.Receive("gzt_GetAllZones", function(len, ply)

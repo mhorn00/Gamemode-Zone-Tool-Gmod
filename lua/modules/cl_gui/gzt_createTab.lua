@@ -1,7 +1,6 @@
 AddCSLuaFile()
 
 if SERVER then 
-    util.AddNetworkString("gzt_createPanel_receiveallcats")
     util.AddNetworkString("gzt_get_parent_uuid")
     util.AddNetworkString("gzt_createPanel_receiveallzones")
     return 
@@ -107,6 +106,13 @@ function CategorySort(a,b)
 end
 
 function PANEL:PopulateCategories()
+    local t = util.TableToJSON(self.gzt_categories) 
+    print("Len t",#t)
+    local comp = util.Compress(t)
+    print("Len comp",#comp)
+    print(t)
+    print("===========================================")
+    print(comp)
     self.cat_wait = false
     self.populated = true
     self.TreeView.nodes["Root"] = self.TreeView:AddNode("Root","materials/catagory_icon.png")
@@ -151,9 +157,10 @@ net.Receive("gzt_updateclientcategory", function(len)
     GZT_GUI.BasePanel.TabPane.CreateTab:UpdateCategory(uuid, catObj)
 end)
 
-net.Receive("gzt_createPanel_receiveallcats", function(len)
-    GZT_GUI.BasePanel.TabPane.CreateTab.gzt_categories = net.ReadTable()
+hook.Add("gzt_createPanel_receiveallcats","somthing",function(tbl)
+    GZT_GUI.BasePanel.TabPane.CreateTab.gzt_categories = tbl
     GZT_GUI.BasePanel.TabPane.CreateTab:PopulateCategories()
+    print("HOOK RECIVED!!!!!!!!!")
 end)
 
 function PANEL:GetZones()
