@@ -27,7 +27,6 @@ net.SendChunks = function(cb, tableToSend, ply)
     local num_chunks = #compressed / max_bytes_per_chunk
     local curChunk = 0
     repeat 
-        print("sending a chunk")
         net.Start("gzt_chunkmessage")
             net.WriteString(cb)
             net.WriteUInt(curChunk, 16)
@@ -39,10 +38,15 @@ net.SendChunks = function(cb, tableToSend, ply)
             net.WriteUInt(endPos-curChunk*max_bytes_per_chunk,16)
             local substr = string.sub(compressed,curChunk*max_bytes_per_chunk+1,endPos)
             net.WriteData(substr,endPos-curChunk*max_bytes_per_chunk)
-        if(!IsValid(ply)) then
-            net.Broadcast()
-        else
-            net.Send(ply)
+        if(SERVER) then
+            if(!IsValid(ply)) then
+                net.Broadcast()
+            else
+                net.Send(ply)
+            end
+        end
+        if CLIENT then
+            net.SendToServer()
         end
         curChunk = curChunk+1
     until curChunk>=num_chunks

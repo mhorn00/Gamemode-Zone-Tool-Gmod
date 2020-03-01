@@ -143,13 +143,9 @@ end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_T] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
-	if !KeyCombo.processed && !KeyCombo.released && SERVER then
-		if self.CurrentBox.gzt_entity && IsValid(self.CurrentBox.gzt_entity) then
-			if self.CurrentBox.gzt_entity:GetDrawFaces() then
-				self.CurrentBox.gzt_entity:SetDrawFaces(false)
-			else
-				self.CurrentBox.gzt_entity:SetDrawFaces(true)
-			end
+	if !KeyCombo.processed && !KeyCombo.released then
+		if ConVarExists("gzt_currently_editing_ent") then
+			GZT_WRAPPER:RemoteFunction(GetConVar("gzt_currently_editing_ent"):GetString(),"ToggleFaces")
 		end
 	end
 end
@@ -172,6 +168,10 @@ SWEP["KF"..SWEP.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
 			self:TellServerToCreateZone()
 		end
 	end
+end
+
+SWEP["KF"..SWEP.Modes.Create..KEY_G] = function(self, KeyCombo)
+	// implement angles
 end
 
 SWEP.TellServerToCreateZone = function(self)

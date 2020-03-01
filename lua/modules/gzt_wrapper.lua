@@ -40,9 +40,7 @@ if SERVER then
     end)
 
     net.Receive("gzt_GetAllZones", function(len, ply)
-        net.Start(net.ReadString())
-            net.WriteTable(GZT_WRAPPER:GetClientZones())
-        net.Send(ply)
+        net.SendChunks(net.ReadString(),GZT_WRAPPER:GetClientZones(),ply)
     end)
 
     net.Receive("gzt_GetZoneByUUID", function(len, ply)
@@ -112,8 +110,6 @@ if SERVER then
     end
 
     function GZT_WRAPPER:InitZones() 
-        print("PRE MAKEZONES")
-        PrintTable(self.gzt_zones)
         for uuid,zone in pairs(self.gzt_zones) do
             self:MakeZone(zone)
         end
@@ -192,6 +188,15 @@ if SERVER then
         GZT_WRAPPER:InitZones()
     end
     hook.Add("InitPostEntity", "GZT_BeforeLoadEntities", InitPostEntity)
+    
+    function RemoteFunction(remoteFuncData)
+        local uuid = remoteFuncData.uuid
+        local funcName = remoteFuncData.funcName
+        local data = remoteFuncData.data
+        data = data and data or {}
+        GZT_WRAPPER.gzt_zones[uuid].gzt_entity[funcName](GZT_WRAPPER.gzt_zones[uuid].gzt_entity,unpack(data))
+    end
+    hook.Add("gzt_remotefunction", "gzt_remotefunctionhandler", RemoteFunction)
 else --CLIENT
     function GZT_WRAPPER:GetAllZones(cb)
         net.Start("gzt_GetAllZones")
@@ -214,7 +219,6 @@ else --CLIENT
             net.WriteTable(zoneObj)
         net.SendToServer()
     end
-
     
     function GZT_WRAPPER:ClientUpdateZone(zoneObj, entId)
         net.Start("gzt_ClientUpdateZone")
@@ -234,6 +238,10 @@ else --CLIENT
         net.Start("gzt_GetAllCategories")
             net.WriteString(callback)
         net.SendToServer()
+    end
+
+    function GZT_WRAPPER:RemoteFunction(uuid, funcname, data)
+        net.SendChunks("gzt_remotefunction", {uuid=uuid, funcName=funcname, data=data})
     end
 end
 

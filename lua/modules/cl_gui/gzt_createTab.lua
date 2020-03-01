@@ -106,13 +106,6 @@ function CategorySort(a,b)
 end
 
 function PANEL:PopulateCategories()
-    local t = util.TableToJSON(self.gzt_categories) 
-    print("Len t",#t)
-    local comp = util.Compress(t)
-    print("Len comp",#comp)
-    print(t)
-    print("===========================================")
-    print(comp)
     self.cat_wait = false
     self.populated = true
     self.TreeView.nodes["Root"] = self.TreeView:AddNode("Root","materials/catagory_icon.png")
@@ -157,10 +150,9 @@ net.Receive("gzt_updateclientcategory", function(len)
     GZT_GUI.BasePanel.TabPane.CreateTab:UpdateCategory(uuid, catObj)
 end)
 
-hook.Add("gzt_createPanel_receiveallcats","somthing",function(tbl)
+hook.Add("gzt_createPanel_receiveallcats","_",function(tbl)
     GZT_GUI.BasePanel.TabPane.CreateTab.gzt_categories = tbl
     GZT_GUI.BasePanel.TabPane.CreateTab:PopulateCategories()
-    print("HOOK RECIVED!!!!!!!!!")
 end)
 
 function PANEL:GetZones()
@@ -170,6 +162,7 @@ end
 
 function PANEL:PopulateZones()
     self.zone_wait = false
+    //TODO: sort the zones list alphabeticaly 
     for uuid,zone in pairs(self.gzt_zones) do
         if zone.gzt_parent then
             self.TreeView.nodes[uuid] = self.TreeView.nodes[zone.gzt_parent]:AddNode(zone.gzt_internalname,"materials/zone_icon.png") //TODO: use display name
@@ -199,8 +192,8 @@ net.Receive("gzt_updateclientzone", function(len)
     GZT_GUI.BasePanel.TabPane.CreateTab:UpdateCategory(uuid, zone)
 end)
 
-net.Receive("gzt_createPanel_receiveallzones", function(len)
-    GZT_GUI.BasePanel.TabPane.CreateTab.gzt_zones = net.ReadTable()
+hook.Add("gzt_createPanel_receiveallzones", "_", function(tbl)
+    GZT_GUI.BasePanel.TabPane.CreateTab.gzt_zones = tbl
     GZT_GUI.BasePanel.TabPane.CreateTab:PopulateZones()
 end)
 

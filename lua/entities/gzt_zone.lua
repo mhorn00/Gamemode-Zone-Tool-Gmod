@@ -107,13 +107,6 @@ function ENT:Think()
 			self:SetRenderOrigin(Lerp(0.5, self:GetMinBound(),self:GetMaxBound()))
 		end
 	end
-	--[[]
-	Events we are checking for:
-		Enter from top/left/right etc side
-		Shoot from side,
-		player enter with side,
-
-	]]
 end
 
 function ENT:Initialize()
@@ -128,8 +121,15 @@ function ENT:TestCollision(startpos, delta, isbox, extents, mask)
 	return
 end
 
+function ENT:ToggleFaces()
+	if self:GetDrawFaces() then
+		self:SetDrawFaces(false)
+	else
+		self:SetDrawFaces(true)
+	end
+end
+
 function ENT:Draw()
-	--self:DrawModel()
 	cam.Start3D()
 		local rb1,rb2 = self:GetRenderBounds()
 		local waabb1, waabb2 = self:WorldSpaceAABB() 
