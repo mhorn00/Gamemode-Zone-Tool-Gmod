@@ -34,6 +34,8 @@ if SERVER then
     util.AddNetworkString("gzt_UpdateClientZones")
     util.AddNetworkString("gzt_UpdateClientCategory")
     util.AddNetworkString("gzt_returnclientzoneid")
+    util.AddNetworkString("gzt_setrotation")
+    util.AddNetworkString("gzt_deletezone")
     
     net.Receive("gzt_GetAllCategories", function(len, ply)
         net.SendChunks(net.ReadString(), GZT_WRAPPER:GetClientCategories(), ply)
@@ -67,6 +69,29 @@ if SERVER then
         net.Start(net.ReadString())
             net.WriteTable(copyNoFunctions(GZT_WRAPPER.gzt_categories[net.ReadString()]))
         net.Send(ply)
+    end)
+
+    net.Receive("gzt_SetRotation", function(len, ply)
+        local zone = GZT_WRAPPER.gzt_zones[net.ReadString()]
+        if zone then
+            zone.gzt_entity:SetAngles(ply:EyeAngles())
+            if(IsValid(zone.gzt_entity) and IsValid(zone.gzt_entity:GetPhysicsObject())) then
+                local min = zone.gzt_entity:OBBMins()-zone.gzt_entity:OBBCenter()
+                local max = zone.gzt_entity:OBBMaxs()-zone.gzt_entity:OBBCenter()
+                zone.gzt_pos1 = min
+                zone.gzt_pos2 = max
+                print(zone.gzt_pos1, zone.gzt_pos2)
+                zone.gzt_entity:SetMinBound(zone.gzt_pos1)
+                zone.gzt_entity:SetMaxBound(zone.gzt_pos2)
+            end
+        end
+    end)
+
+    net.Receive("gzt_DeleteZone", function(len, ply)
+        local uuid = net.ReadString()
+        local zone = GZT_WRAPPER.gzt_zones[uuid]
+        zone.gzt_entity:Remove()
+        GZT_WRAPPER.gzt_zones[uuid] = nil
     end)
 
     function GZT_WRAPPER:GetClientCategories()
@@ -111,6 +136,10 @@ if SERVER then
 
     function GZT_WRAPPER:InitZones() 
         for uuid,zone in pairs(self.gzt_zones) do
+            if(!zone.gzt_center) then // TODO: Make sure all defined in file zones are in local coords, this is quick fix to convert :)
+                print("no zone center :(((( =========== \n\n\n\n\n")
+                zone.gzt_center, zone.gzt_pos1, zone.gzt_pos2 = GZT_WRAPPER:toLocalSpace(zone.gzt_pos1, zone.gzt_pos2)
+            end
             self:MakeZone(zone)
         end
     end
@@ -126,24 +155,20 @@ if SERVER then
 
     function GZT_WRAPPER:MakeZone(zoneObj, ply)
         local curZone = ents.Create("gzt_zone")
-        local pos1 = Vector(zoneObj.gzt_pos1.x,zoneObj.gzt_pos1.y,zoneObj.gzt_pos1.z)
-        local pos2 = Vector(zoneObj.gzt_pos2.x,zoneObj.gzt_pos2.y,zoneObj.gzt_pos2.z)
-        local angle = nil
-        if(zoneObj.gzt_angle) then
-            angle = Angle(zoneObj.gzt_angle.p,zoneObj.gzt_angle.y,zoneObj.gzt_angle.r)
-        end
-        curZone:Setup(pos1, pos2, angle)
-        curZone:Spawn()
         local tempuuid = zoneObj.gzt_uuid
         if(!zoneObj.gzt_uuid) then
             tempuuid = uuid()
         end
+        curZone:Setup(zoneObj.gzt_center,zoneObj.gzt_pos1, zoneObj.gzt_pos2, nil and zoneObj.gzt_angles or Angle(0,0,0), tempuuid)
+        curZone:Spawn()
+
         self.gzt_zones[tempuuid] = zoneObj
         self.gzt_zones[tempuuid].gzt_uuid = tempuuid
         self.gzt_zones[tempuuid].gzt_entity = curZone
         self:UpdateClientZone(self.gzt_zones[tempuuid])
         return self.gzt_zones[tempuuid].gzt_uuid
     end
+
 
     function GZT_WRAPPER:UpdateZone(uuid, zoneObj)
         if self.gzt_zones[uuid]==nil then
@@ -155,7 +180,12 @@ if SERVER then
             return
         end
         if IsValid(serverZoneObj.gzt_entity) then
-            serverZoneObj.gzt_entity:Setup(zoneObj.gzt_pos1, zoneObj.gzt_pos2, zoneObj.gzt_angle)
+            if(zoneObj.gzt_angles) then
+                serverZoneObj.gzt_entity:Setup(zoneObj.gzt_center, zoneObj.gzt_pos1, zoneObj.gzt_pos2, zoneObj.gzt_angles, zoneObj.gzt_uuid)
+
+            else
+                serverZoneObj.gzt_entity:Setup(zoneObj.gzt_center, zoneObj.gzt_pos1, zoneObj.gzt_pos2, Angle(0,0,0), zoneObj.gzt_uuid)
+            end            
         end
         self:UpdateClientZone(zoneObj)
     end
@@ -194,7 +224,9 @@ if SERVER then
         local funcName = remoteFuncData.funcName
         local data = remoteFuncData.data
         data = data and data or {}
-        GZT_WRAPPER.gzt_zones[uuid].gzt_entity[funcName](GZT_WRAPPER.gzt_zones[uuid].gzt_entity,unpack(data))
+        if (GZT_WRAPPER.gzt_zones && GZT_WRAPPER.gzt_zones[uuid] && IsValid(GZT_WRAPPER.gzt_zones[uuid].gzt_entity)) then
+            GZT_WRAPPER.gzt_zones[uuid].gzt_entity[funcName](GZT_WRAPPER.gzt_zones[uuid].gzt_entity,unpack(data))
+        end
     end
     hook.Add("gzt_remotefunction", "gzt_remotefunctionhandler", RemoteFunction)
 else --CLIENT
@@ -240,8 +272,26 @@ else --CLIENT
         net.SendToServer()
     end
 
+    function GZT_WRAPPER:SetRotation(uuid)
+        net.Start("gzt_setrotation")
+            net.WriteString(uuid)
+        net.SendToServer()
+    end
+
     function GZT_WRAPPER:RemoteFunction(uuid, funcname, data)
         net.SendChunks("gzt_remotefunction", {uuid=uuid, funcName=funcname, data=data})
     end
+
+    function GZT_WRAPPER:DeleteZone(uuid)
+        net.Start("gzt_deletezone")
+            net.WriteString(uuid)
+        net.SendToServer()
+    end
+
 end
 
+function GZT_WRAPPER:toLocalSpace(pos1, pos2)
+    pos1v, pos2v = Vector(pos1.x,pos1.y,pos1.z),Vector(pos2.x,pos2.y,pos2.z)
+    local center = LerpVector(.5,pos1v, pos2v)
+    return center, pos1v-center, pos2v-center
+end

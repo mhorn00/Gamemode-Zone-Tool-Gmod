@@ -59,7 +59,6 @@ function PANEL:Init()
     -- PANEL = self
 end
 
-//TODO: This needs to read from the master list on the server
 function PANEL:CMPopulateCatagories(catagories)
     if self.catViewScroll.catagoryView.catNodes && self.catViewScroll.catagoryView.catNodes != {} && self.catViewScroll.catagoryView.catNodes["Root"] && self.catViewScroll.catagoryView.catNodes["Root"].ChildNodes then
         for _,node in pairs(self.catViewScroll.catagoryView.catNodes["Root"].ChildNodes:GetChildren()) do

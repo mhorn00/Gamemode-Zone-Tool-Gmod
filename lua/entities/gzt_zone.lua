@@ -29,8 +29,10 @@ ENT.CornerEnts = {}
 function ENT:SetupDataTables()
 	self:NetworkVar("Vector",0,"MinBound")
 	self:NetworkVar("Vector",1,"MaxBound")
+	self:NetworkVar("Vector",2,"Position")
 	self:NetworkVar("String",0,"Catagory")
 	self:NetworkVar("Bool",0,"DrawFaces")
+	self:NetworkVar("String",0,"Uuid")
 end
 
 function ENT:Resize(changedcorner)
@@ -63,7 +65,7 @@ function ENT:BuildCorners()
 	end
 end
 
-function ENT:Setup(min,max,angle)//TODO: add angle to this
+function ENT:Setup(center,min,max,angle,uuid)
 	if(self.CornerEnts && #self.CornerEnts != 0) then
 		for k,v in pairs(self.CornerEnts) do
 			if(IsValid(v)) then
@@ -74,43 +76,45 @@ function ENT:Setup(min,max,angle)//TODO: add angle to this
 	vec1 = Vector(min)
 	vec2 = Vector(max)
 	OrderVectors(vec1,vec2)
-	self:SetPos(Lerp(0.5,vec1,vec2))
+	print("GIVEN POS : : : : : " , center)
+	self.gzt_uuid = uuid
+	self:SetUuid(uuid)
+	self:SetPosition(center)
+	self:SetPos(center)
 	self:SetMinBound(vec1)
 	self:SetMaxBound(vec2)
 	self:SetDrawFaces(self:GetDrawFaces())
-	self:PhysicsInitBox(vec1-self:GetPos(),vec2-self:GetPos())
+	self:SetAngles(angle)
+	self:PhysicsInitBox(vec1-self:GetPos(),vec2+self:GetPos())
 	local diff_vector = self:GetMaxBound() - self:GetMinBound()
 	local smallest_side = math.min(diff_vector.x, diff_vector.y, diff_vector.z)
-	for i = 0, 7 do
-		local maxBound = self:GetMaxBound()
-		local minBound = self:GetMinBound()
-		local x = bit.band(i, 1) == 0 and maxBound.x or minBound.x
-		local y = bit.band(i, 2) == 0 and maxBound.y or minBound.y
-		local z = bit.band(i, 4) == 0 and maxBound.z or minBound.z
-		self.Corners[i + 1] = Vector(x, y, z)
-		self.CornerEnts[i + 1] = ents.Create("gzt_zonecorner")
-		self.CornerEnts[i+1]:Setup(smallest_side, i)
-		self.CornerEnts[i+1]:SetOwner(self)
-		self.CornerEnts[i+1]:Spawn()
-		self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
-		if(i==0 or i==7) then
-			self.CornerEnts[i+1]:SetColor(Color(255,0,0))
-		end
-	end
+	// TODO: Change to local coords
+	-- for i = 0, 7 do
+	-- 	local maxBound = self:GetMaxBound()
+	-- 	local minBound = self:GetMinBound()
+	-- 	local x = bit.band(i, 1) == 0 and maxBound.x or minBound.x
+	-- 	local y = bit.band(i, 2) == 0 and maxBound.y or minBound.y
+	-- 	local z = bit.band(i, 4) == 0 and maxBound.z or minBound.z
+	-- 	self.Corners[i + 1] = Vector(x, y, z)
+	-- 	self.CornerEnts[i + 1] = ents.Create("gzt_zonecorner")
+	-- 	self.CornerEnts[i+1]:Setup(smallest_side, i)
+	-- 	self.CornerEnts[i+1]:SetOwner(self)
+	-- 	self.CornerEnts[i+1]:Spawn()
+	-- 	self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
+	-- 	if(i==0 or i==7) then
+	-- 		self.CornerEnts[i+1]:SetColor(Color(255,0,0))
+	-- 	end
+	-- end
 end
-
 
 function ENT:Think()
 	if CLIENT then
-		if(self:GetMinBound() && self:GetMaxBound()) then
-			self:SetRenderBounds(self:GetMinBound()-self:GetPos(), self:GetMaxBound()-self:GetPos())
-			self:SetRenderOrigin(Lerp(0.5, self:GetMinBound(),self:GetMaxBound()))
-		end
+		self:SetRenderBounds(self:GetMinBound(),self:GetMaxBound())
 	end
 end
 
 function ENT:Initialize()
-	self:SetModel("")
+	self:SetModel("models/props_c17/oildrum001.mdl")
 	self:DrawShadow(false)
 	self:SetMoveType(MOVETYPE_NONE)
     self:SetCollisionGroup(COLLISION_GROUP_WORLD)
@@ -131,12 +135,12 @@ end
 
 function ENT:Draw()
 	cam.Start3D()
-		local rb1,rb2 = self:GetRenderBounds()
-		local waabb1, waabb2 = self:WorldSpaceAABB() 
+		local cb1, cb2 = self:GetCollisionBounds()
+		render.DrawWireframeBox(self:GetPosition(), self:GetAngles(), cb1, cb2, Color(0,255,0,255), false)
 		if(LocalPlayer():GetActiveWeapon() && LocalPlayer():GetActiveWeapon().GetCurrentEnt && IsValid(LocalPlayer():GetActiveWeapon():GetCurrentEnt()) && LocalPlayer():GetActiveWeapon():GetCurrentEnt() == self) then
-			render.DrawWireframeBox(Vector(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(255,0,0,255), true)
+			render.DrawWireframeBox(self:GetPos(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(255,0,0,255), true)
 		else
-			render.DrawWireframeBox(Vector(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(0,0,0,255), false)
+			render.DrawWireframeBox(self:GetPosition(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(0,0,0,255), false)
 		end
 	cam.End3D()
 	if self:GetDrawFaces() then
@@ -156,7 +160,7 @@ function ENT:Draw()
 			local color = Color(bit.band(k, 4) * 255, bit.band(k, 2) * 255, bit.band(k, 1) * 255, 50)
 			cam.Start3D()
 				render.SetColorMaterial(color)
-				render.DrawBox(Vector(), self:GetAngles(), c1, c2, color)
+				render.DrawBox(Vector(),Angle(0,0,0), c1, c2, color)
 			cam.End3D()
 			cam.Start3D2D(center+vec*.995, v[2], 1)
 				surface.SetMaterial(Material("materials/face_" .. v[1] .. ".png"))

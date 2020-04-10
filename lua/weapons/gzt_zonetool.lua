@@ -39,11 +39,7 @@ SWEP.Initialized = false
 SWEP.IsPaused = false --CLIENT ONLY
 
 
-SWEP.CurrentBox = {
-	MinBound=nil,
-	MaxBound=nil,
-	Ent=nil
-}
+SWEP.CurrentZoneObj = {}
 SWEP.Modes = {
 	Loading = "Loading",
 	Create = "Create",
@@ -76,7 +72,7 @@ if CLIENT then
 	net.Receive("gzt_returnclientzoneid", function(len)
 		local gzt_uuid =  net.ReadString()
 		print("Setting uuid to ", gzt_uuid)
-		LocalPlayer():GetActiveWeapon().gzt_uuid = gzt_uuid
+		LocalPlayer():GetActiveWeapon().CurrentZoneObj.gzt_uuid = gzt_uuid
 		GetConVar("gzt_currently_editing_ent"):SetString(gzt_uuid)
 	end)
 end
@@ -153,8 +149,8 @@ end
 SWEP["KF"..SWEP.Modes.Create..MOUSE_LEFT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then  
-		self.CurrentBox.gzt_pos1 = self:GetOwner():GetPos()
-		if self.CurrentBox && self.CurrentBox.gzt_pos1 && self.CurrentBox.gzt_pos2 then
+		self.CurrentZoneObj.wspos1 = self:GetOwner():GetPos()
+		if self.CurrentZoneObj && self.CurrentZoneObj.wspos1 && self.CurrentZoneObj.wspos2 then
 			self:TellServerToCreateZone()
 		end
 	end
@@ -163,98 +159,95 @@ end
 SWEP["KF"..SWEP.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
-		self.CurrentBox.gzt_pos2 = self:GetOwner():GetPos()
-		if self.CurrentBox && self.CurrentBox.gzt_pos1 && self.CurrentBox.gzt_pos2 then
+		self.CurrentZoneObj.wspos2 = self:GetOwner():GetPos()
+		if self.CurrentZoneObj && self.CurrentZoneObj.wspos1 && self.CurrentZoneObj.wspos2 then
 			self:TellServerToCreateZone()
 		end
 	end
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_G] = function(self, KeyCombo)
-	// implement angles
+	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
+	if KeyCombo.processed && !KeyCombo.released then
+		if self.CurrentZoneObj.gzt_uuid != "" && self.CurrentZoneObj.gzt_uuid != nil then
+			GZT_WRAPPER:SetRotation(self.CurrentZoneObj.gzt_uuid)
+		end
+	end
 end
 
 SWEP.TellServerToCreateZone = function(self)
-	local zoneObj = {}
-	zoneObj.gzt_pos1 = self.CurrentBox.gzt_pos1
-	zoneObj.gzt_pos2 = self.CurrentBox.gzt_pos2
 	if GetConVar("gzt_selected_category_uuid"):GetString() == "" then
 		local namelist = GetConVar("gzt_selected_category_uuid"):GetString()
-		zoneObj.gzt_parent = namelist
+		self.CurrentZoneObj.gzt_parent = namelist
 	else
-		zoneObj.gzt_parent = ""
+		self.CurrentZoneObj.gzt_parent = ""
 	end
-	print(self.gzt_uuid)
-	if self.gzt_uuid == "" or self.gzt_uuid==nil then
-		GZT_WRAPPER:ClientMakeZone(zoneObj)
+	self.CurrentZoneObj.gzt_center, self.CurrentZoneObj.gzt_pos1, self.CurrentZoneObj.gzt_pos2 = GZT_WRAPPER:toLocalSpace(self.CurrentZoneObj.wspos1, self.CurrentZoneObj.wspos2)
+	if self.CurrentZoneObj.gzt_uuid == "" || self.CurrentZoneObj.gzt_uuid == nil then
+		GZT_WRAPPER:ClientMakeZone(self.CurrentZoneObj)
 	else
-		-- print("entId prior to clientupdatezone",self.entId)
-		GZT_WRAPPER:ClientUpdateZone(zoneObj, self.gzt_uuid)
+		GZT_WRAPPER:ClientUpdateZone(self.CurrentZoneObj, self.CurrentZoneObj.gzt_uuid)
 	end
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_LEFT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
-		if self.CurrentBox.gzt_entity then
-			self:DeleteBox()
-			self.CurrentBox.gzt_entity=nil
-		end
-		if self.CurrentBox.gzt_pos1 then
-			self.CurrentBox.gzt_pos1=nil
+		if self.CurrentZoneObj.gzt_uuid then
+			GZT_WRAPPER:DeleteZone(self.CurrentZoneObj.gzt_uuid)
+			self.CurrentBox.gzt_pos1 = nil
+			self.CurrentZoneObj.gzt_uuid = nil
 		end
 	end
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
-	if !KeyCombo.processed && !KeyCombo.released then 
-		if self.CurrentBox.gzt_entity then
-			self:DeleteBox()
-			self.CurrentBox.gzt_entity=nil
-		end
-		if self.CurrentBox.gzt_pos2 then
-			self.CurrentBox.gzt_pos2=nil
+	if !KeyCombo.processed && !KeyCombo.released then
+		if self.CurrentZoneObj.gzt_uuid then
+			GZT_WRAPPER:DeleteZone(self.CurrentZoneObj.gzt_uuid)
+			self.CurrentBox.gzt_pos2 = nil
+			self.CurrentZoneObj.gzt_uuid = nil
 		end
 	end
 end
 
-SWEP["KF"..SWEP.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
-	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
-	if !KeyCombo.processed && !KeyCombo.released then
-		if(!IsValid(self.SelectedCorner)) then
-			tr = self:GetOwner():GetEyeTrace()
-			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner" && !tr.Entity:GetOwner().Grabbed) then
-				//set grab state for all corners to true, grabplayer maybe = self:GetOwner()?
-				self.SelectedCorner = tr.Entity
-				self.SelectedCorner:GetOwner().Grabbed = true
-				self.SelectedCorner:SetColor(Color(0,0,255,255))
-				self:SetGrabMag(self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos()))
-				self.GrabMagCL = self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
-				print("Set grab mag to "..self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos()))
-			end
-		end
-	elseif KeyCombo.processed && !KeyCombo.released then
-		if IsValid(self.SelectedCorner) then
-			print("using grab mag ", self:GetGrabMag())
-			if SERVER then
-				self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self:GetGrabMag())
-			else
-				self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagCL)
-			end
-			self.SelectedCorner:GetOwner():Resize(self.SelectedCorner)
-		end
-	elseif KeyCombo.processed && KeyCombo.released then
-		if IsValid(self.SelectedCorner) then
-			self.SelectedCorner:SetColor(Color(255,255,255,255))
-			if(SERVER) then
-				self.SelectedCorner:GetOwner():BuildCorners()
-			end
-			self.SelectedCorner:GetOwner().Grabbed = nil
-			self.SelectedCorner = nil 
-		end
-	end
-end
+-- SWEP["KF"..SWEP.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
+-- 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
+-- 	if !KeyCombo.processed && !KeyCombo.released then
+-- 		if(!IsValid(self.SelectedCorner)) then
+-- 			tr = self:GetOwner():GetEyeTrace()
+-- 			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner" && !tr.Entity:GetOwner().Grabbed) then
+-- 				//set grab state for all corners to true, grabplayer maybe = self:GetOwner()?
+-- 				self.SelectedCorner = tr.Entity
+-- 				self.SelectedCorner:GetOwner().Grabbed = true
+-- 				self.SelectedCorner:SetColor(Color(0,0,255,255))
+-- 				self:SetGrabMag(self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos()))
+-- 				self.GrabMagCL = self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
+-- 				print("Set grab mag to "..self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos()))
+-- 			end
+-- 		end
+-- 	elseif KeyCombo.processed && !KeyCombo.released then
+-- 		if IsValid(self.SelectedCorner) then
+-- 			print("using grab mag ", self:GetGrabMag())
+-- 			if SERVER then
+-- 				self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self:GetGrabMag())
+-- 			else
+-- 				self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagCL)
+-- 			end
+-- 			self.SelectedCorner:GetOwner():Resize(self.SelectedCorner)
+-- 		end
+-- 	elseif KeyCombo.processed && KeyCombo.released then
+-- 		if IsValid(self.SelectedCorner) then
+-- 			self.SelectedCorner:SetColor(Color(255,255,255,255))
+-- 			if(SERVER) then
+-- 				self.SelectedCorner:GetOwner():BuildCorners()
+-- 			end
+-- 			self.SelectedCorner:GetOwner().Grabbed = nil
+-- 			self.SelectedCorner = nil 
+-- 		end
+-- 	end
+-- end
 
 function SWEP:GetToolMode() 
 	return self.ModeList[GetConVar("gzt_toolmode"):GetInt()]
