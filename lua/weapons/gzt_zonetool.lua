@@ -39,7 +39,7 @@ SWEP.Initialized = false
 SWEP.IsPaused = false --CLIENT ONLY
 
 
-SWEP.CurrentZoneObj = {}
+SWEP.gzt_CurrentZoneObj = {}
 SWEP.Modes = {
 	Loading = "Loading",
 	Create = "Create",
@@ -66,14 +66,18 @@ SWEP.GrabMagCL = -1
 
 if SERVER then
 	util.AddNetworkString("gzt_returnclientzoneid")
+	util.AddNetworkString("gzt_deleteFinished")
 end
 
 if CLIENT then
 	net.Receive("gzt_returnclientzoneid", function(len)
 		local gzt_uuid =  net.ReadString()
-		print("Setting uuid to ", gzt_uuid)
-		LocalPlayer():GetActiveWeapon().CurrentZoneObj.gzt_uuid = gzt_uuid
+		LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid = gzt_uuid
 		GetConVar("gzt_currently_editing_ent"):SetString(gzt_uuid)
+	end)
+	net.Receive("gzt_deleteFinished", function(len)
+		LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid = nil
+		print("UUID nil!!!!!")
 	end)
 end
 
@@ -149,8 +153,8 @@ end
 SWEP["KF"..SWEP.Modes.Create..MOUSE_LEFT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then  
-		self.CurrentZoneObj.wspos1 = self:GetOwner():GetPos()
-		if self.CurrentZoneObj && self.CurrentZoneObj.wspos1 && self.CurrentZoneObj.wspos2 then
+		self.gzt_CurrentZoneObj.wspos1 = self:GetOwner():GetPos()
+		if self.gzt_CurrentZoneObj && self.gzt_CurrentZoneObj.wspos1 && self.gzt_CurrentZoneObj.wspos2 then
 			self:TellServerToCreateZone()
 		end
 	end
@@ -159,8 +163,8 @@ end
 SWEP["KF"..SWEP.Modes.Create..MOUSE_RIGHT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
-		self.CurrentZoneObj.wspos2 = self:GetOwner():GetPos()
-		if self.CurrentZoneObj && self.CurrentZoneObj.wspos1 && self.CurrentZoneObj.wspos2 then
+		self.gzt_CurrentZoneObj.wspos2 = self:GetOwner():GetPos()
+		if self.gzt_CurrentZoneObj && self.gzt_CurrentZoneObj.wspos1 && self.gzt_CurrentZoneObj.wspos2 then
 			self:TellServerToCreateZone()
 		end
 	end
@@ -169,8 +173,13 @@ end
 SWEP["KF"..SWEP.Modes.Create..KEY_G] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if KeyCombo.processed && !KeyCombo.released then
-		if self.CurrentZoneObj.gzt_uuid != "" && self.CurrentZoneObj.gzt_uuid != nil then
-			GZT_WRAPPER:SetRotation(self.CurrentZoneObj.gzt_uuid)
+		if self.gzt_CurrentZoneObj.gzt_uuid != "" && self.gzt_CurrentZoneObj.gzt_uuid != nil then
+			-- GZT_WRAPPER:SetRotation(self.CurrentZoneObj.gzt_uuid)
+			local tr = LocalPlayer():GetEyeTrace()
+			local diffVec = tr.HitPos - self:GetPos()
+			local angle = diffVec:Angle()
+			GZT_WRAPPER:SetRotation(self.gzt_CurrentZoneObj.gzt_uuid,angle)
+			
 		end
 	end
 end
@@ -178,25 +187,24 @@ end
 SWEP.TellServerToCreateZone = function(self)
 	if GetConVar("gzt_selected_category_uuid"):GetString() == "" then
 		local namelist = GetConVar("gzt_selected_category_uuid"):GetString()
-		self.CurrentZoneObj.gzt_parent = namelist
+		self.gzt_CurrentZoneObj.gzt_parent = namelist
 	else
-		self.CurrentZoneObj.gzt_parent = ""
+		self.gzt_CurrentZoneObj.gzt_parent = ""
 	end
-	self.CurrentZoneObj.gzt_center, self.CurrentZoneObj.gzt_pos1, self.CurrentZoneObj.gzt_pos2 = GZT_WRAPPER:toLocalSpace(self.CurrentZoneObj.wspos1, self.CurrentZoneObj.wspos2)
-	if self.CurrentZoneObj.gzt_uuid == "" || self.CurrentZoneObj.gzt_uuid == nil then
-		GZT_WRAPPER:ClientMakeZone(self.CurrentZoneObj)
+	self.gzt_CurrentZoneObj.gzt_center, self.gzt_CurrentZoneObj.gzt_pos1, self.gzt_CurrentZoneObj.gzt_pos2 = GZT_WRAPPER:toLocalSpace(self.gzt_CurrentZoneObj.wspos1, self.gzt_CurrentZoneObj.wspos2)
+	if self.gzt_CurrentZoneObj.gzt_uuid == "" || self.gzt_CurrentZoneObj.gzt_uuid == nil then
+		GZT_WRAPPER:ClientMakeZone(self.gzt_CurrentZoneObj)
 	else
-		GZT_WRAPPER:ClientUpdateZone(self.CurrentZoneObj, self.CurrentZoneObj.gzt_uuid)
+		GZT_WRAPPER:ClientUpdateZone(self.gzt_CurrentZoneObj, self.gzt_CurrentZoneObj.gzt_uuid)
 	end
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_LEFT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
-		if self.CurrentZoneObj.gzt_uuid then
-			GZT_WRAPPER:DeleteZone(self.CurrentZoneObj.gzt_uuid)
-			self.CurrentBox.gzt_pos1 = nil
-			self.CurrentZoneObj.gzt_uuid = nil
+		if self.gzt_CurrentZoneObj.gzt_uuid then
+			GZT_WRAPPER:DeleteZone(self.gzt_CurrentZoneObj.gzt_uuid)
+			self.gzt_CurrentZoneObj.gzt_pos1 = nil
 		end
 	end
 end
@@ -204,10 +212,9 @@ end
 SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if !KeyCombo.processed && !KeyCombo.released then
-		if self.CurrentZoneObj.gzt_uuid then
-			GZT_WRAPPER:DeleteZone(self.CurrentZoneObj.gzt_uuid)
-			self.CurrentBox.gzt_pos2 = nil
-			self.CurrentZoneObj.gzt_uuid = nil
+		if self.gzt_CurrentZoneObj.gzt_uuid then
+			GZT_WRAPPER:DeleteZone(self.gzt_CurrentZoneObj.gzt_uuid)
+			self.gzt_CurrentZoneObj.gzt_pos2 = nil
 		end
 	end
 end
@@ -296,9 +303,11 @@ function PlayerBindPress(ply, bind, pressed)
 end
 hook.Add("PlayerBindPress", "gzt_ZoneToolScrollHandle", PlayerBindPress)
 
+
+
 function SWEP:PlayerButtonDown(key, ply)
 	--In this function self refers to the player holding the tool, not the tool itself
-	if CLIENT && !IsFirstTimePredicted() then return end 
+	if (CLIENT && !IsFirstTimePredicted()) || SERVER then return end 
 	if self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gzt_zonetool" then
 		local toolInst = self:GetActiveWeapon()
 		toolInst.KeyTable[key] = {key=key, time=SysTime()} 
@@ -309,6 +318,7 @@ hook.Add("PlayerButtonDown", "gzt_ZoneToolKeyDown", SWEP.PlayerButtonDown)
 
 function SWEP:PlayerButtonUp(key, ply)
     --In this function self refers to the player holding the tool, not the tool itself
+	if SERVER then return end
 	if self:GetActiveWeapon():IsValid() && self:GetActiveWeapon():GetClass()=="gzt_zonetool" then
 		local toolInst = self:GetActiveWeapon()
 		if(!toolInst.KeyTable) then return end
@@ -324,6 +334,7 @@ function SWEP:PlayerButtonUp(key, ply)
 end
 hook.Add("PlayerButtonUp","gzt_ZoneToolKeyUp", SWEP.PlayerButtonUp)
 
+// TODO: Double click keybind support
 function SWEP:ProcessInput()
 	if (SERVER) then return end
 	--CREATION OF KEY COMBOS
@@ -477,6 +488,8 @@ function SWEP:ProcessInput()
 		end
 	end
 end
+
+
 
 function SWEP:RenderScreen()
     if SERVER then return end

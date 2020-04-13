@@ -73,25 +73,45 @@ if SERVER then
 
     net.Receive("gzt_SetRotation", function(len, ply)
         local zone = GZT_WRAPPER.gzt_zones[net.ReadString()]
+        local angle = net.ReadAngle()
         if zone then
-            zone.gzt_entity:SetAngles(ply:EyeAngles())
+            zone.gzt_entity:SetAngles(angle)
             if(IsValid(zone.gzt_entity) and IsValid(zone.gzt_entity:GetPhysicsObject())) then
                 local min = zone.gzt_entity:OBBMins()-zone.gzt_entity:OBBCenter()
                 local max = zone.gzt_entity:OBBMaxs()-zone.gzt_entity:OBBCenter()
                 zone.gzt_pos1 = min
                 zone.gzt_pos2 = max
-                print(zone.gzt_pos1, zone.gzt_pos2)
                 zone.gzt_entity:SetMinBound(zone.gzt_pos1)
                 zone.gzt_entity:SetMaxBound(zone.gzt_pos2)
             end
         end
     end)
-
+    
+    local isDeleting = {}
     net.Receive("gzt_DeleteZone", function(len, ply)
         local uuid = net.ReadString()
-        local zone = GZT_WRAPPER.gzt_zones[uuid]
-        zone.gzt_entity:Remove()
-        GZT_WRAPPER.gzt_zones[uuid] = nil
+        if(!isDeleting[uuid]) then
+            local zone = GZT_WRAPPER.gzt_zones[uuid]
+            if(zone and IsValid(zone.gzt_entity) and !isDeleting[uuid]) then
+            
+                isDeleting[uuid] = true
+                print(zone..""..uuid)
+                zone.gzt_entity:Remove()
+            else
+                return
+            end
+
+            print("setting uuid to nil")
+            GZT_WRAPPER.gzt_zones[uuid] = nil
+            isDeleting[uuid] = nil
+            net.Start("gzt_deleteFinished")
+            net.Send(ply)
+        else
+            print("mutex failure")
+            return
+        end
+        
+
     end)
 
     function GZT_WRAPPER:GetClientCategories()
@@ -137,7 +157,6 @@ if SERVER then
     function GZT_WRAPPER:InitZones() 
         for uuid,zone in pairs(self.gzt_zones) do
             if(!zone.gzt_center) then // TODO: Make sure all defined in file zones are in local coords, this is quick fix to convert :)
-                print("no zone center :(((( =========== \n\n\n\n\n")
                 zone.gzt_center, zone.gzt_pos1, zone.gzt_pos2 = GZT_WRAPPER:toLocalSpace(zone.gzt_pos1, zone.gzt_pos2)
             end
             self:MakeZone(zone)
@@ -154,14 +173,14 @@ if SERVER then
     end
 
     function GZT_WRAPPER:MakeZone(zoneObj, ply)
+        print("MADE ZONE")
         local curZone = ents.Create("gzt_zone")
         local tempuuid = zoneObj.gzt_uuid
         if(!zoneObj.gzt_uuid) then
             tempuuid = uuid()
         end
-        curZone:Setup(zoneObj.gzt_center,zoneObj.gzt_pos1, zoneObj.gzt_pos2, nil and zoneObj.gzt_angles or Angle(0,0,0), tempuuid)
         curZone:Spawn()
-
+        curZone:Setup(zoneObj.gzt_center,zoneObj.gzt_pos1, zoneObj.gzt_pos2, nil and zoneObj.gzt_angles or Angle(0,0,0), tempuuid)
         self.gzt_zones[tempuuid] = zoneObj
         self.gzt_zones[tempuuid].gzt_uuid = tempuuid
         self.gzt_zones[tempuuid].gzt_entity = curZone
@@ -171,6 +190,7 @@ if SERVER then
 
 
     function GZT_WRAPPER:UpdateZone(uuid, zoneObj)
+        print("UPDATE ZONE")
         if self.gzt_zones[uuid]==nil then
             self:MakeZone(zoneObj, ply)
             return
@@ -246,8 +266,6 @@ else --CLIENT
     function GZT_WRAPPER:ClientMakeZone(zoneObj)
         net.Start("gzt_ClientMakeZone")
             -- net.WriteString(cb)
-            print(zoneObj)
-            PrintTable(zoneObj)
             net.WriteTable(zoneObj)
         net.SendToServer()
     end
@@ -272,9 +290,10 @@ else --CLIENT
         net.SendToServer()
     end
 
-    function GZT_WRAPPER:SetRotation(uuid)
+    function GZT_WRAPPER:SetRotation(uuid,angle)
         net.Start("gzt_setrotation")
             net.WriteString(uuid)
+            net.WriteAngle(angle)
         net.SendToServer()
     end
 
