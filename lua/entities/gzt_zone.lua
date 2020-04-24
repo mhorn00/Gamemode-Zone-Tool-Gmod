@@ -220,59 +220,6 @@ function ENT:Draw()
 				render.DrawLine(center,face_offset+center,color,true)
 			cam.End3D()
 		end
-		-- local center = self:GetPos()
-		-- local diff_vector = self:GetMaxBound()
-		-- local smallest_side = math.min(diff_vector.x, diff_vector.y, diff_vector.z)*2
-		-- local curAng = self:GetAngles()
-		-- for k,v in pairs(self.FACE_ENUM) do
-		-- 	if(k%3!=0) then
-		-- 		continue
-		-- 	end
-		-- 	local vec_x,vec_y,vec_z = 0, 0, 0
-		-- 	local ang_p, ang_y, ang_r = 0, 0, 0
-		-- 	local corn_x, corn_y, corn_z = 0, 0, 0
-		-- 	local vec = Vector(
-		-- 		k%3==2 and diff_vector.x*(math.floor(k/3)==1 and -1 or 1) or 0, // x
-		-- 		k%3==1 and diff_vector.y*(math.floor(k/3)==1 and -1 or 1) or 0, // y
-		-- 		k%3==0 and diff_vector.z*(math.floor(k/3)==1 and 1 or -1) or 0 // z
-		-- 	)
-		-- 	-- print(vec)
-		-- 	local angle = Angle(
-		-- 		k%3==2 and v[2].p+curAng.p*(math.floor(k/3)==1 and 1 or -1) or curAng.p,
-		-- 		k%3==1 and v[2].y+curAng.y*(math.floor(k/3)==1 and 1 or -1) or curAng.y,
-		-- 		k%3==0 and v[2].r+curAng.r*(math.floor(k/3)==1 and 1 or -1) or curAng.r
-		-- 	)
-		-- 	local cornerVector =  Vector(
-		-- 		k%3!=2 and diff_vector.x or 0,
-		-- 		k%3!=1 and diff_vector.y or 0, 
-		-- 		k%3!=0 and diff_vector.z or 0
-		-- 	)
-		-- 	// for the component axis vector to get the corner we need the other two components * .5 added onto it respectively
-		-- 	local color = Color(bit.band(k, 4) * 255, bit.band(k, 2) * 255, bit.band(k, 1) * 255, 100)
-		-- 	local c1 = vec - cornerVector
-		-- 	local c2 = vec - -1*cornerVector
-		-- 	local angle_vec = Vector(vec)
-		-- 	angle_vec:Rotate(angle)
-		-- 	if(math.floor(k/3)!=1) then
-		-- 		angle_vec = angle_vec*-1
-		-- 	end
-		-- 	cam.Start3D()
-		-- 		render.SetColorMaterial(color)
-		-- 		render.DrawBox(center,self:GetAngles(), c1, c2, color)
-		-- 		render.DrawLine(center,angle_vec+center,color,true)
-		-- 		render.DrawLine(center, center+diff_vector, Color(255,255,255,255))
-		-- 	cam.End3D()
-		-- 	cam.Start3D2D(center*.995,v[2], 1)
-		-- 		surface.SetMaterial(Material("materials/face_" .. v[1] .. ".png"))
-		-- 		surface.SetDrawColor(0, 0, 0, 200)
-		-- 		surface.DrawTexturedRect(-smallest_side/2, -smallest_side/2, smallest_side, smallest_side)
-		-- 	cam.End3D2D()
-		-- 	cam.Start3D2D(center+angle_vec, v[3], 1)
-		-- 		surface.SetMaterial(Material("materials/face_" .. v[1] .. ".png"))
-		-- 		surface.SetDrawColor(0, 0, 0, 200)
-		-- 		surface.DrawTexturedRect(-smallest_side/2, -smallest_side/2, smallest_side, smallest_side)
-		-- 	cam.End3D2D()
-		-- end
 	end
 end
 

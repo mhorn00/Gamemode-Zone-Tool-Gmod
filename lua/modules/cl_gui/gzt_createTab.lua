@@ -36,7 +36,7 @@ function PANEL:Init()
     self:InvalidateParent(true)
 end
 
-net.Receive("gzt_get_parent_uuid", function()
+net.RateReceive("gzt_get_parent_uuid", function()
     local cat = net.ReadTable()
     if ConVarExists("gzt_selected_category_uuid") then
         GetConVar("gzt_selected_category_uuid"):SetString(cat.gzt_uuid)
@@ -144,7 +144,7 @@ function PANEL:UpdateCategory(catName, catObj)
 
 end
 
-net.Receive("gzt_updateclientcategory", function(len)
+net.RateReceive("gzt_updateclientcategory", function(len)
     local uuid = net.ReadString()
     local catObj = net.ReadTable()
     GZT_GUI.BasePanel.TabPane.CreateTab:UpdateCategory(uuid, catObj)
@@ -186,7 +186,7 @@ function PANEL:UpdateZone(zoneName,zone)
 
 end
 
-net.Receive("gzt_updateclientzone", function(len)
+net.RateReceive("gzt_updateclientzone", function(len)
     local uuid = net.ReadString()
     local zone = net.ReadTable()
     GZT_GUI.BasePanel.TabPane.CreateTab:UpdateCategory(uuid, zone)

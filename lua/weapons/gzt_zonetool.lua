@@ -77,7 +77,6 @@ if CLIENT then
 	end)
 	net.Receive("gzt_deleteFinished", function(len)
 		LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid = nil
-		print("UUID nil!!!!!")
 	end)
 end
 

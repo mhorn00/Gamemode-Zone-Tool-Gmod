@@ -2,6 +2,7 @@ AddCSLuaFile()
 
 if SERVER then
     util.AddNetworkString("gzt_chunkmessage")
+    util.AddNetworkString("gzt_ratemessage")
 end
 
 net.SendMultiple = function(callbackStrings, netMessage)
@@ -77,3 +78,19 @@ net.Receive("gzt_chunkmessage", function(len, ply)
         hook.Run(msg_name,receivedtable)
     end
 end)
+
+local message_buffer = {}
+net.RateReceive = function(msg,callback)
+    net.Receive(msg, function(len,ply)
+        if message_buffer[ply:UserID()]==nil then
+            message_buffer[ply:UserID()] = false
+        end
+        if message_buffer[ply:UserID()]==false then
+            callback(len,ply)
+            message_buffer[ply:UserID()] = true
+            timer.Simple(0.175,function()
+                message_buffer[ply:UserID()] = false
+            end)
+        end
+    end)
+end

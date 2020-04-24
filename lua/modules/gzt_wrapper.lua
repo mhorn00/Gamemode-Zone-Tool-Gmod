@@ -37,21 +37,21 @@ if SERVER then
     util.AddNetworkString("gzt_setrotation")
     util.AddNetworkString("gzt_deletezone")
     
-    net.Receive("gzt_GetAllCategories", function(len, ply)
+    net.RateReceive("gzt_GetAllCategories", function(len, ply)
         net.SendChunks(net.ReadString(), GZT_WRAPPER:GetClientCategories(), ply)
     end)
 
-    net.Receive("gzt_GetAllZones", function(len, ply)
+    net.RateReceive("gzt_GetAllZones", function(len, ply)
         net.SendChunks(net.ReadString(),GZT_WRAPPER:GetClientZones(),ply)
     end)
 
-    net.Receive("gzt_GetZoneByUUID", function(len, ply)
+    net.RateReceive("gzt_GetZoneByUUID", function(len, ply)
         net.Start(net.ReadString())
             net.WriteTable(copyNoFunctions(GZT_WRAPPER.gzt_zones[net.ReadString()]))
         net.Send(ply)
     end)
 
-    net.Receive("gzt_ClientMakeZone", function(len, ply)
+    net.RateReceive("gzt_ClientMakeZone", function(len, ply)
         local zoneObj = net.ReadTable()
         local myUuid = GZT_WRAPPER:MakeZone(zoneObj,ply)
         net.Start("gzt_returnclientzoneid")
@@ -59,19 +59,19 @@ if SERVER then
         net.Send(ply)
     end)
 
-    net.Receive("gzt_ClientUpdateZone", function(len, ply)
+    net.RateReceive("gzt_ClientUpdateZone", function(len, ply)
         local uuid = net.ReadString()
         local zoneObj = net.ReadTable()
         GZT_WRAPPER:UpdateZone(uuid, zoneObj)
     end)
 
-    net.Receive("gzt_GetCategoryByUUID", function(len,ply)
+    net.RateReceive("gzt_GetCategoryByUUID", function(len,ply)
         net.Start(net.ReadString())
             net.WriteTable(copyNoFunctions(GZT_WRAPPER.gzt_categories[net.ReadString()]))
         net.Send(ply)
     end)
 
-    net.Receive("gzt_SetRotation", function(len, ply)
+    net.RateReceive("gzt_SetRotation", function(len, ply)
         local zone = GZT_WRAPPER.gzt_zones[net.ReadString()]
         local angle = net.ReadAngle()
         if zone then
@@ -88,31 +88,25 @@ if SERVER then
     end)
     
     local isDeleting = {}
-    net.Receive("gzt_DeleteZone", function(len, ply)
+    net.RateReceive("gzt_DeleteZone", function(len, ply)
         local uuid = net.ReadString()
-        if(!isDeleting[uuid]) then
+        if(uuid && !isDeleting[uuid]) then
             local zone = GZT_WRAPPER.gzt_zones[uuid]
             if(zone and IsValid(zone.gzt_entity) and !isDeleting[uuid]) then
-            
                 isDeleting[uuid] = true
-                print(zone..""..uuid)
                 zone.gzt_entity:Remove()
             else
                 return
             end
-
-            print("setting uuid to nil")
             GZT_WRAPPER.gzt_zones[uuid] = nil
             isDeleting[uuid] = nil
             net.Start("gzt_deleteFinished")
             net.Send(ply)
         else
-            print("mutex failure")
             return
         end
-        
-
     end)
+    
 
     function GZT_WRAPPER:GetClientCategories()
         return copyNoFunctions(self.gzt_categories)
@@ -173,7 +167,6 @@ if SERVER then
     end
 
     function GZT_WRAPPER:MakeZone(zoneObj, ply)
-        print("MADE ZONE")
         local curZone = ents.Create("gzt_zone")
         local tempuuid = zoneObj.gzt_uuid
         if(!zoneObj.gzt_uuid) then
@@ -190,7 +183,6 @@ if SERVER then
 
 
     function GZT_WRAPPER:UpdateZone(uuid, zoneObj)
-        print("UPDATE ZONE")
         if self.gzt_zones[uuid]==nil then
             self:MakeZone(zoneObj, ply)
             return
@@ -265,7 +257,6 @@ else --CLIENT
 
     function GZT_WRAPPER:ClientMakeZone(zoneObj)
         net.Start("gzt_ClientMakeZone")
-            -- net.WriteString(cb)
             net.WriteTable(zoneObj)
         net.SendToServer()
     end
