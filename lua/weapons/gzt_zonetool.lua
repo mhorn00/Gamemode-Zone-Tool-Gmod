@@ -174,8 +174,9 @@ SWEP["KF"..SWEP.Modes.Create..KEY_G] = function(self, KeyCombo)
 	if KeyCombo.processed && !KeyCombo.released then
 		if self.gzt_CurrentZoneObj.gzt_uuid != "" && self.gzt_CurrentZoneObj.gzt_uuid != nil then
 			-- GZT_WRAPPER:SetRotation(self.CurrentZoneObj.gzt_uuid)
+
 			local tr = LocalPlayer():GetEyeTrace()
-			local diffVec = tr.HitPos - self:GetPos()
+			local diffVec = tr.HitPos - LerpVector(.5, self.gzt_CurrentZoneObj.gzt_pos1, self.gzt_CurrentZoneObj.gzt_pos2)
 			local angle = diffVec:Angle()
 			GZT_WRAPPER:SetRotation(self.gzt_CurrentZoneObj.gzt_uuid,angle)
 			
@@ -506,11 +507,4 @@ function SWEP:RenderScreen()
 	render.PopRenderTarget()
 end
 
---[[ current problems...
-
-	grab mag not working <- just use net or something
-	corner trailing behind cursor
-	corner beam 
-	corners still active when zone gone
-]]
 GZT_ZONETOOL = SWEP

@@ -23,9 +23,6 @@ ENT.FACE_ENUM = {
 	ENT.FACE_ANGLES.down,
 }
 
-ENT.Corners = {}
-ENT.CornerEnts = {}
-
 function ENT:SetupDataTables()
 	self:NetworkVar("Vector",0,"MinBound")
 	self:NetworkVar("Vector",1,"MaxBound")
@@ -35,44 +32,15 @@ function ENT:SetupDataTables()
 	self:NetworkVar("String",0,"Uuid")
 end
 
-function ENT:Resize(changedcorner)
-	if CLIENT then return end
-	local opposite = self.CornerEnts[(7-changedcorner:GetIndex())+1]
-	local vec1 = opposite:GetPos()
-	local vec2 = changedcorner:GetPos()
-	OrderVectors(vec1,vec2)
-	self:SetPos(Lerp(0.5,vec1,vec2))
-	self:SetMinBound(vec1)
-	self:SetMaxBound(vec2)
-end
-
-function ENT:BuildCorners()
-	local vec1 = self:GetMinBound()
-	local vec2 = self:GetMaxBound()
-	self:PhysicsInitBox(vec1-self:GetPos(),vec2-self:GetPos())
-	local diff_vector = self:GetMaxBound() - self:GetMinBound()
-	local smallest_side = math.min(diff_vector.x, diff_vector.y, diff_vector.z)
-	for i = 0, 7 do
-		self.CornerEnts[i+1]:Setup(smallest_side, i)
-		local x = bit.band(i, 1) == 0 and vec1.x or vec2.x
-		local y = bit.band(i, 2) == 0 and vec1.y or vec2.y
-		local z = bit.band(i, 4) == 0 and vec1.z or vec2.z
-		self.Corners[i + 1] = Vector(x, y, z)
-		self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
-		if(i==0 or i==7) then
-			self.CornerEnts[i+1]:SetColor(Color(255,0,0))
-		end
-	end
+function ENT:Initialize()
+	self:SetModel("models/props_c17/oildrum001.mdl")
+	self:DrawShadow(false)
+	self:SetMoveType(MOVETYPE_NONE)
+    self:SetCollisionGroup(COLLISION_GROUP_WORLD)
+    self:EnableCustomCollisions(true)
 end
 
 function ENT:Setup(center,min,max,angle,uuid)
-	if(self.CornerEnts && #self.CornerEnts != 0) then
-		for k,v in pairs(self.CornerEnts) do
-			if(IsValid(v)) then
-				v:Remove()
-			end
-		end
-	end
 	vec1 = Vector(min)
 	vec2 = Vector(max)
 	OrderVectors(vec1,vec2)
@@ -85,39 +53,48 @@ function ENT:Setup(center,min,max,angle,uuid)
 	self:SetDrawFaces(self:GetDrawFaces())
 	self:SetAngles(angle)
 	self:PhysicsInitBox(vec1,vec2)
-	local diff_vector = self:GetMaxBound() - self:GetMinBound()
-	local smallest_side = math.min(diff_vector.x, diff_vector.y, diff_vector.z)
-	// TODO: Change to local coords
-	-- for i = 0, 7 do
-	-- 	local maxBound = self:GetMaxBound()
-	-- 	local minBound = self:GetMinBound()
-	-- 	local x = bit.band(i, 1) == 0 and maxBound.x or minBound.x
-	-- 	local y = bit.band(i, 2) == 0 and maxBound.y or minBound.y
-	-- 	local z = bit.band(i, 4) == 0 and maxBound.z or minBound.z
-	-- 	self.Corners[i + 1] = Vector(x, y, z)
-	-- 	self.CornerEnts[i + 1] = ents.Create("gzt_zonecorner")
-	-- 	self.CornerEnts[i+1]:Setup(smallest_side, i)
-	-- 	self.CornerEnts[i+1]:SetOwner(self)
-	-- 	self.CornerEnts[i+1]:Spawn()
-	-- 	self.CornerEnts[i + 1]:SetPos(self.Corners[i + 1])
-	-- 	if(i==0 or i==7) then
-	-- 		self.CornerEnts[i+1]:SetColor(Color(255,0,0))
-	-- 	end
-	-- end
+	self:SetupFaces()
+end
+
+function ENT:SetupFaces()
+	if CLIENT then return end
+	local THICKNESS = 1
+	local dist_vec = self:GetMaxBound()
+	local pos = self:GetPos()
+	for i=1,6 do 
+		local face_offset = Vector(
+			i%3==1 and dist_vec.x or 0,
+			i%3==2 and dist_vec.y or 0,
+			i%3==0 and dist_vec.z or 0)
+		if math.floor((i-1)/3)>=1 then
+			face_offset = face_offset*-1
+		end
+		local face = ents.Create("gzt_face")
+		local size_vector_3d = self:GetMaxBound()-(face_offset*((i/3)>1 and -1 or 1))
+		local min = Vector(-size_vector_3d)
+		local max = Vector(size_vector_3d)
+		local verts = {}
+		if size_vector_3d.x==0 then
+			min.x = -THICKNESS
+			max.x = THICKNESS
+		elseif size_vector_3d.y==0 then
+			min.y = -THICKNESS
+			max.y = THICKNESS
+		else
+			min.z = -THICKNESS
+			max.z = THICKNESS
+		end
+		face:SetPos(pos+face_offset)
+		face:SetAngles(self:GetAngles())
+		face:Setup(min,max)
+		face:SetMoveParent(self)
+	end
 end
 
 function ENT:Think()
 	if CLIENT then
 		self:SetRenderBounds(self:GetMinBound(),self:GetMaxBound())
 	end
-end
-
-function ENT:Initialize()
-	self:SetModel("models/props_c17/oildrum001.mdl")
-	self:DrawShadow(false)
-	self:SetMoveType(MOVETYPE_NONE)
-    self:SetCollisionGroup(COLLISION_GROUP_WORLD)
-    self:EnableCustomCollisions(true)
 end
 
 function ENT:TestCollision(startpos, delta, isbox, extents, mask)
@@ -153,9 +130,6 @@ function ENT:Draw()
 		local dist_vec = self:GetMaxBound()
 		local smallest_side = math.min(dist_vec.x, dist_vec.y, dist_vec.z)*2
 		for index,face in pairs(self.FACE_ENUM) do
-			if index!=1 then
-				-- continue
-			end
 			local color = Color(
 				index%3==1 and (math.floor((index-1)/3)==1 and 0 or 255) or (math.floor((index-1)/3)==1 and 255 or 0),
 				index%3==2 and (math.floor((index-1)/3)==1 and 0 or 255) or (math.floor((index-1)/3)==1 and 255 or 0),
@@ -170,7 +144,7 @@ function ENT:Draw()
 			if math.floor((index-1)/3)>=1 then
 				face_offset = face_offset*-1
 			end
-			face_offset_aa = Vector(face_offset)
+			face_offset_aa = Vector(face_offset) --face_offset_axis_aligned
 			face_offset:Rotate(angles)
 			local size_vector_3d = dist_vec-(face_offset_aa*((index/3)>1 and -1 or 1))
 			local verts = {}
