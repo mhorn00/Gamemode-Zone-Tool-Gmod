@@ -14,6 +14,7 @@ ENT.FACE_ANGLES = {
 	right = {name="right",mat=Material("materials/face_right.png"), letter_out=270, letter_in=90, face_out=Angle(-90,0,90),face_in=Angle(90,0,-90)},
 	down = {name="down",mat=Material("materials/face_down.png"), letter_out=270, letter_in=270, face_out=Angle(-180,0,0),face_in=Angle(0,0,0)},
 }
+
 ENT.FACE_ENUM = {
 	ENT.FACE_ANGLES.foward,
 	ENT.FACE_ANGLES.left,
@@ -22,6 +23,7 @@ ENT.FACE_ENUM = {
 	ENT.FACE_ANGLES.right,
 	ENT.FACE_ANGLES.down,
 }
+ENT.Faces = {}
 
 function ENT:SetupDataTables()
 	self:NetworkVar("Vector",0,"MinBound")
@@ -52,16 +54,21 @@ function ENT:Setup(center,min,max,angle,uuid)
 	self:SetMaxBound(vec2)
 	self:SetDrawFaces(self:GetDrawFaces())
 	self:SetAngles(angle)
-	self:PhysicsInitBox(vec1,vec2)
 	self:SetupFaces()
 end
 
 function ENT:SetupFaces()
-	if CLIENT then return end
 	local THICKNESS = 1
 	local dist_vec = self:GetMaxBound()
 	local pos = self:GetPos()
-	for i=1,6 do 
+	local angles = self:GetAngles()
+	if self.Faces then
+		for k,v in pairs(self.Faces) do
+			v:Remove()
+		end
+	end
+	self.Faces = {}
+	for i,face in pairs(self.FACE_ENUM) do 
 		local face_offset = Vector(
 			i%3==1 and dist_vec.x or 0,
 			i%3==2 and dist_vec.y or 0,
@@ -69,8 +76,8 @@ function ENT:SetupFaces()
 		if math.floor((i-1)/3)>=1 then
 			face_offset = face_offset*-1
 		end
-		local face = ents.Create("gzt_face")
-		local size_vector_3d = self:GetMaxBound()-(face_offset*((i/3)>1 and -1 or 1))
+		self.Faces[i] = ents.Create("gzt_face")
+		local size_vector_3d = dist_vec - (face_offset*((i/3)>1 and -1 or 1))
 		local min = Vector(-size_vector_3d)
 		local max = Vector(size_vector_3d)
 		local verts = {}
@@ -84,10 +91,13 @@ function ENT:SetupFaces()
 			min.z = -THICKNESS
 			max.z = THICKNESS
 		end
-		face:SetPos(pos+face_offset)
-		face:SetAngles(self:GetAngles())
-		face:Setup(min,max)
-		face:SetMoveParent(self)
+		face_offset_aa = Vector(face_offset) --face_offset_axis_aligned
+		face_offset:Rotate(angles)
+		self.Faces[i]:SetPos(pos+face_offset)
+		self.Faces[i]:SetAngles(angles)
+		self.Faces[i]:SetMin(min)
+		self.Faces[i]:SetMax(max)
+		self.Faces[i]:Spawn()
 	end
 end
 
@@ -101,6 +111,14 @@ function ENT:TestCollision(startpos, delta, isbox, extents, mask)
 	return
 end
 
+function PhysgunPickup(ply,ent)
+    if ent:GetClass() == "gzt_face" || ent:GetClass() == "gzt_zone" then
+        return false
+    end 
+    return true
+end
+hook.Add("PhysgunPickup", "gzt_pickup", PhysgunPickup)
+
 function ENT:ToggleFaces()
 	if self:GetDrawFaces() then
 		self:SetDrawFaces(false)
@@ -113,7 +131,7 @@ end
 local color_mat = Material("color")
 function ENT:Draw()
 	cam.Start3D()
-		if(LocalPlayer():GetActiveWeapon() && LocalPlayer():GetActiveWeapon():GetClass()=="gzt_zonetool" && LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid == self:GetUuid()) then
+		if IsValid(LocalPlayer():GetActiveWeapon()) && LocalPlayer():GetActiveWeapon() && LocalPlayer():GetActiveWeapon():GetClass()=="gzt_zonetool" && LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid == self:GetUuid() then
 			render.DrawWireframeBox(self:GetPos(), self:GetAngles(), self:GetMinBound(), self:GetMaxBound(), Color(150,0,0,255), true)
 			if input.IsKeyDown(KEY_G) then
 				local tr = LocalPlayer():GetEyeTrace()

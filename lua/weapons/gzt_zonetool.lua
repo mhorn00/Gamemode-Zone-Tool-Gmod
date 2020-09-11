@@ -173,10 +173,8 @@ SWEP["KF"..SWEP.Modes.Create..KEY_G] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if KeyCombo.processed && !KeyCombo.released then
 		if self.gzt_CurrentZoneObj.gzt_uuid != "" && self.gzt_CurrentZoneObj.gzt_uuid != nil then
-			-- GZT_WRAPPER:SetRotation(self.CurrentZoneObj.gzt_uuid)
-
 			local tr = LocalPlayer():GetEyeTrace()
-			local diffVec = tr.HitPos - LerpVector(.5, self.gzt_CurrentZoneObj.gzt_pos1, self.gzt_CurrentZoneObj.gzt_pos2)
+			local diffVec = tr.HitPos - LerpVector(.5, self.gzt_CurrentZoneObj.wspos1, self.gzt_CurrentZoneObj.wspos2)
 			local angle = diffVec:Angle()
 			GZT_WRAPPER:SetRotation(self.gzt_CurrentZoneObj.gzt_uuid,angle)
 			

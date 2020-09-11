@@ -76,6 +76,7 @@ if SERVER then
         local angle = net.ReadAngle()
         if zone then
             zone.gzt_entity:SetAngles(angle)
+            zone.gzt_entity:SetupFaces(zone.gzt_entity:GetMinBound(), zone.gzt_entity:GetMaxBound())
             if(IsValid(zone.gzt_entity) and IsValid(zone.gzt_entity:GetPhysicsObject())) then
                 local min = zone.gzt_entity:OBBMins()-zone.gzt_entity:OBBCenter()
                 local max = zone.gzt_entity:OBBMaxs()-zone.gzt_entity:OBBCenter()
@@ -192,7 +193,7 @@ if SERVER then
             return
         end
         if IsValid(serverZoneObj.gzt_entity) then
-            if(zoneObj.gzt_angles) then
+            if zoneObj.gzt_angles then
                 serverZoneObj.gzt_entity:Setup(zoneObj.gzt_center, zoneObj.gzt_pos1, zoneObj.gzt_pos2, zoneObj.gzt_angles, zoneObj.gzt_uuid)
 
             else
