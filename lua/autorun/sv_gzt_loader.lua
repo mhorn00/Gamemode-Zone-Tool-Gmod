@@ -28,8 +28,8 @@ local reservedZone = {
     gzt_properties = {type="table",optional=true, reserved=true},
     gzt_editable = {type="boolean",optional=true, reserved=true},
     gzt_loadedBy = {type="string",optional=true, reserved=true},
-    gzt_pos1 = {type="table",optional=false,reserved=false},
-    gzt_pos2 = {type="table",optional=false,reserved=false},
+    gzt_cornerdist = {type="table",optional=false,reserved=false},
+    gzt_center = {type="table",optional=false,reserved=false},
     gzt_angle = {type="table",optional=false,reserved=false},
     gzt_uuid = {type="string",optional=true, reserved=true}
 }
@@ -39,7 +39,7 @@ function errorHandler(error)
 end
 
 local random = math.random
-local function uuid()
+local function MakeUuid()
     local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
     return string.gsub(template, '[xy]', function (c)
         local v = (c == 'x') and random(0, 0xf) or random(8, 0xb)
@@ -212,7 +212,7 @@ function PostGamemodeLoaded()
             errorCheck(catName,cat)
             cat.gzt_loadedBy="GM"
             cat.gzt_editable = false
-            cat.gzt_uuid = uuid()
+            cat.gzt_uuid = MakeUuid()
             FunctionProcessor(cat)
             PropertyProcessor(cat,false)
             checkIfList(cat)
@@ -224,7 +224,7 @@ function PostGamemodeLoaded()
         for catName, cat in pairs(USERMAP_CATS) do
             errorCheck(catName, cat)
             cat.gzt_loadedBy="USERMAP"
-            cat.gzt_uuid = uuid()
+            cat.gzt_uuid = MakeUuid()
             FunctionProcessor(cat)
             PropertyProcessor(cat,false)
             checkIfList(cat)
@@ -243,7 +243,7 @@ function PostGamemodeLoaded()
         for catName, cat in pairs(USER_CATS) do
             errorCheck(catName, cat)
             cat.gzt_loadedBy="USER"
-            cat.gzt_uuid = uuid()
+            cat.gzt_uuid = MakeUuid()
             FunctionProcessor(cat)
             PropertyProcessor(cat,false)
             checkIfList(cat)
@@ -260,7 +260,7 @@ function PostGamemodeLoaded()
             errorCheck(zoneId,zone, true)
             zone.gzt_loadedBy="GM"
             zone.gzt_editable = false
-            zone.gzt_uuid = uuid()
+            zone.gzt_uuid = MakeUuid()
             FunctionProcessor(zone)
             PropertyProcessor(zone,true)
             checkIfList(zone)
@@ -272,7 +272,7 @@ function PostGamemodeLoaded()
         for zoneId, zone in pairs(USERMAP_ZONES) do
             errorCheck(zoneId, zone, true)
             zone.gzt_loadedBy="USERMAP"
-            zone.gzt_uuid = uuid()
+            zone.gzt_uuid = MakeUuid()
             FunctionProcessor(zone)
             PropertyProcessor(zone,true)
             checkIfList(zone)
@@ -291,18 +291,30 @@ function PostGamemodeLoaded()
         for zoneId, zone in pairs(USER_ZONES) do
             errorCheck(zoneId, zone, true)
             zone.gzt_loadedBy="USER"
-            zone.gzt_uuid = uuid()
+            zone.gzt_uuid = MakeUuid()
             FunctionProcessor(zone)
             PropertyProcessor(zone,true)
             checkIfList(zone)
             collisonDetectorAndHandler(GZT_ZONES, zoneId, zone, true)
         end
     end
+    for k,v in pairs(GZT_ZONES) do
+        transform_zone_corners(v)
+    end
+    
     GZT_WRAPPER:SetCategories(GZT_CATS)
     GZT_WRAPPER:SetZones(GZT_ZONES)
 end
 hook.Add("PostGamemodeLoaded", "GZT_Loader_PostGamemodeLoaded", PostGamemodeLoaded)
 
+function transform_zone_corners(zone)
+    local center = Vector(zone.gzt_center.x,zone.gzt_center.y,zone.gzt_center.z)
+    local corner_dist = Vector(zone.gzt_cornerdist.x,zone.gzt_cornerdist.y,zone.gzt_cornerdist.z)
+    local opposite = corner_dist * -1
+    zone.gzt_pos1 = corner_dist
+    zone.gzt_pos2 = opposite
+    zone.gzt_cornerdist = nil
+end
 --[[
     Load order
     1. Gamemode cateories

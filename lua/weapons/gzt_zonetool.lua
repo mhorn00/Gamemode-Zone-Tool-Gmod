@@ -38,8 +38,15 @@ SWEP.Secondary.Ammo = "none"
 SWEP.Initialized = false
 SWEP.IsPaused = false --CLIENT ONLY
 
-
 SWEP.gzt_CurrentZoneObj = {}
+--[[CurrentZoneObj Def:
+		gzt_center = zone zenter
+		gzt_wspos1 = 1st corner (World Space)
+		gzt_wspos2 = 2nd corner (World Space)
+		gzt_pos1 = 1st corner (Local Space)
+		gzt_pos2 = 2nd corner (Local Space)
+		gzt_uuid = zone uuid ]]
+
 SWEP.Modes = {
 	Loading = "Loading",
 	Create = "Create",
@@ -61,9 +68,6 @@ SWEP.ModifierKeys[KEY_LCONTROL] = true
 SWEP.ModifierKeys[KEY_LSHIFT] = true
 SWEP.ModifierKeys[KEY_LALT] = true
 
-SWEP.SelectedCorner = nil
-SWEP.GrabMagCL = -1
-
 if SERVER then
 	util.AddNetworkString("gzt_returnclientzoneid")
 	util.AddNetworkString("gzt_deleteFinished")
@@ -71,7 +75,7 @@ end
 
 if CLIENT then
 	net.Receive("gzt_returnclientzoneid", function(len)
-		local gzt_uuid =  net.ReadString()
+		local gzt_uuid = net.ReadString()
 		LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid = gzt_uuid
 		GetConVar("gzt_currently_editing_ent"):SetString(gzt_uuid)
 	end)
@@ -87,11 +91,6 @@ function SWEP:Initialize()
 		self:SetToolMode("Loading")
 		self:IncToolMode()
 	end
-end
-
-function SWEP:SetupDataTables()
-	self:NetworkVar("Float",0,"GrabMag")
-	self:NetworkVar("Entity", 0, "CurrentEnt")
 end
 
 function SWEP:Deploy()
@@ -173,27 +172,28 @@ SWEP["KF"..SWEP.Modes.Create..KEY_G] = function(self, KeyCombo)
 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
 	if KeyCombo.processed && !KeyCombo.released then
 		if self.gzt_CurrentZoneObj.gzt_uuid != "" && self.gzt_CurrentZoneObj.gzt_uuid != nil then
-			local tr = LocalPlayer():GetEyeTrace()
+			local trData = util.GetPlayerTrace(self:GetOwner())
+    		trData.filter = function(ent) 
+        		if ent:GetClass()=="gzt_zone" || ent:GetClass()=="gzt_face" || ent:IsPlayer() then
+            		return false
+        		end
+        		return true
+			end 
+    		local tr = util.TraceLine(trData)
 			local diffVec = tr.HitPos - LerpVector(.5, self.gzt_CurrentZoneObj.wspos1, self.gzt_CurrentZoneObj.wspos2)
 			local angle = diffVec:Angle()
-			GZT_WRAPPER:SetRotation(self.gzt_CurrentZoneObj.gzt_uuid,angle)
-			
+			GZT_WRAPPER:ClientUpdateZone({uuid=self.gzt_CurrentZoneObj.gzt_uuid, gzt_angle=angle})
 		end
 	end
 end
 
 SWEP.TellServerToCreateZone = function(self)
-	if GetConVar("gzt_selected_category_uuid"):GetString() == "" then
-		local namelist = GetConVar("gzt_selected_category_uuid"):GetString()
-		self.gzt_CurrentZoneObj.gzt_parent = namelist
-	else
-		self.gzt_CurrentZoneObj.gzt_parent = ""
-	end
 	self.gzt_CurrentZoneObj.gzt_center, self.gzt_CurrentZoneObj.gzt_pos1, self.gzt_CurrentZoneObj.gzt_pos2 = GZT_WRAPPER:toLocalSpace(self.gzt_CurrentZoneObj.wspos1, self.gzt_CurrentZoneObj.wspos2)
-	if self.gzt_CurrentZoneObj.gzt_uuid == "" || self.gzt_CurrentZoneObj.gzt_uuid == nil then
-		GZT_WRAPPER:ClientMakeZone(self.gzt_CurrentZoneObj)
+	local data = {gzt_uuid=self.gzt_CurrentZoneObj.gzt_uuid, gzt_center=self.gzt_CurrentZoneObj.gzt_center,gzt_pos1= self.gzt_CurrentZoneObj.gzt_pos1,gzt_pos2= self.gzt_CurrentZoneObj.gzt_pos2,gzt_angle=Angle(0,0,0)}
+	if data.gzt_uuid == "" || data.gzt_uuid == nil then
+		GZT_WRAPPER:ClientMakeZone(data)
 	else
-		GZT_WRAPPER:ClientUpdateZone(self.gzt_CurrentZoneObj, self.gzt_CurrentZoneObj.gzt_uuid)
+		GZT_WRAPPER:ClientUpdateZone(data)
 	end
 end
 
@@ -216,43 +216,6 @@ SWEP["KF"..SWEP.Modes.Create..KEY_LCONTROL..MOUSE_RIGHT] = function(self, KeyCom
 		end
 	end
 end
-
--- SWEP["KF"..SWEP.Modes.Create..KEY_LALT..MOUSE_LEFT] = function(self, KeyCombo)
--- 	if GetConVar("gzt_in_menu"):GetInt() == 1 || GetConVar("gzt_is_paused"):GetInt() == 1 then return end
--- 	if !KeyCombo.processed && !KeyCombo.released then
--- 		if(!IsValid(self.SelectedCorner)) then
--- 			tr = self:GetOwner():GetEyeTrace()
--- 			if(tr.Hit && IsValid(tr.Entity) && tr.Entity.ClassName=="gzt_zonecorner" && !tr.Entity:GetOwner().Grabbed) then
--- 				//set grab state for all corners to true, grabplayer maybe = self:GetOwner()?
--- 				self.SelectedCorner = tr.Entity
--- 				self.SelectedCorner:GetOwner().Grabbed = true
--- 				self.SelectedCorner:SetColor(Color(0,0,255,255))
--- 				self:SetGrabMag(self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos()))
--- 				self.GrabMagCL = self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos())
--- 				print("Set grab mag to "..self.SelectedCorner:GetPos():Distance(self:GetOwner():EyePos()))
--- 			end
--- 		end
--- 	elseif KeyCombo.processed && !KeyCombo.released then
--- 		if IsValid(self.SelectedCorner) then
--- 			print("using grab mag ", self:GetGrabMag())
--- 			if SERVER then
--- 				self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self:GetGrabMag())
--- 			else
--- 				self.SelectedCorner:SetPos(self:GetOwner():EyePos()+self:GetOwner():GetAimVector()*self.GrabMagCL)
--- 			end
--- 			self.SelectedCorner:GetOwner():Resize(self.SelectedCorner)
--- 		end
--- 	elseif KeyCombo.processed && KeyCombo.released then
--- 		if IsValid(self.SelectedCorner) then
--- 			self.SelectedCorner:SetColor(Color(255,255,255,255))
--- 			if(SERVER) then
--- 				self.SelectedCorner:GetOwner():BuildCorners()
--- 			end
--- 			self.SelectedCorner:GetOwner().Grabbed = nil
--- 			self.SelectedCorner = nil 
--- 		end
--- 	end
--- end
 
 function SWEP:GetToolMode() 
 	return self.ModeList[GetConVar("gzt_toolmode"):GetInt()]
@@ -280,28 +243,6 @@ function SWEP:IncToolMode()
 		GetConVar("gzt_toolmode"):SetInt(GetConVar("gzt_toolmode"):GetInt()+1)
 	end
 end
-
-function PlayerBindPress(ply, bind, pressed)
-	if(ply:GetActiveWeapon():IsValid() && ply:GetActiveWeapon():GetClass()=="gzt_zonetool") then
-		local self = ply:GetActiveWeapon()
-		if IsValid(self.SelectedCorner) then
-			if(bind == "invprev") then
-				--TODO:scale amount moved on scroll by how far away the box is
-				self.GrabMagCL = math.max(self.GrabMagCL+10, 10)
-				self:SetGrabMag(self.GrabMagCL)
-				print("increasing grabmag to ", self.GrabMagCL)
-				return true
-			elseif bind == "invnext" then
-				self.GrabMagCL = math.max(self.GrabMagCL-10, 10)
-				self:SetGrabMag(self.GrabMagCL)
-				return true
-			end
-		end
-	end
-end
-hook.Add("PlayerBindPress", "gzt_ZoneToolScrollHandle", PlayerBindPress)
-
-
 
 function SWEP:PlayerButtonDown(key, ply)
 	--In this function self refers to the player holding the tool, not the tool itself
@@ -487,8 +428,6 @@ function SWEP:ProcessInput()
 	end
 end
 
-
-
 function SWEP:RenderScreen()
     if SERVER then return end
 	local matScreen = Material( "models/weapons/v_toolgun/screen" )
@@ -499,7 +438,7 @@ function SWEP:RenderScreen()
 		surface.SetDrawColor(0,0,0,255)
 		surface.DrawRect(0,0,256,256)
 		--Draw tool screen here
-        draw.SimpleText("yeet", "GModToolScreen", 256/2, 256/3, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
+        draw.SimpleText("epic", "GModToolScreen", 256/2, 256/3, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
 		draw.SimpleText(self.ModeList[GetConVar("gzt_toolmode"):GetInt()], "GModToolSubtitle", 256/2, 256/1.5, Color( 255, 255, 255, 255 ), TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
 	cam.End2D()
 	render.PopRenderTarget()
