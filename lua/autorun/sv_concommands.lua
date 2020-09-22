@@ -16,3 +16,9 @@ concommand.Add("gzt_parentprop", function(ply, cmd, args, str)
     -- prop:SetAngles()
     prop:SetMoveParent(ply)
 end)
+
+concommand.Add("set_team", function( ply, cmd, args )
+	local Team = args[1] or 1
+	ply:SetTeam( Team )
+	ply:Spawn()
+end )

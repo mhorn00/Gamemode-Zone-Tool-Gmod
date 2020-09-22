@@ -23,9 +23,9 @@ function ENT:Initialize()
     self:Setup(self:GetMin(),self:GetMax())
     if SERVER then 
         self.CollisionClassListShouldCollide = true  
-        self.CollisionClassList = {}
-        self.CollisionTeamListShouldCollide = false
-        self.CollisonTeamList = {}
+        self.CollisionClassList = {"prop_physics"}
+        self.CollisionTeamListShouldCollide = true
+        self.CollisionTeamList = {10}
     end
 end
 
@@ -53,28 +53,33 @@ function ENT:Think()
 end
 
 function ShouldCollide(ent1, ent2)
-    if (ent1:GetClass() != "gzt_face" && ent2:GetClass()!="gzt_face") or (ent1:GetClass()=="gzt_face" && ent2:GetClass() == "gzt_face") or CLIENT then
+    if (ent1:GetClass() != "gzt_face" && ent2:GetClass()!="gzt_face") or (ent1:GetClass()=="gzt_face" && ent2:GetClass() == "gzt_face")  then
         return
     end
     local face = ent1:GetClass()=="gzt_face" and ent1 or ent2
     local not_face = ent1:GetClass() == "gzt_face" and ent2 or ent1
-
-    if !not_face:IsPlayer() then
-        for k,v in pairs(face.CollisionClassList) do -- check to see if entity is in the lsit
-            if not_face:GetClass()==v then
-                return face.CollisionClassListShouldCollide
-            end
-        end
-        return !face.CollisionClassListShouldCollide -- do the OPPOSITE of whatever is in the list does
-    else
-        return false
-    end
+    -- print("face table below... be on lookout for collision stuff :)")
+    -- print(#face.CollisionClassList==0,face.CollisionClassList==nil)
+    -- print(#face.CollisionTeamList==0,face.CollisionTeamList==nil)
+    -- if !not_face:IsPlayer() then
+    --     for k,v in pairs(face.CollisionClassList) do -- check to see if entity is in the lsit
+    --         if not_face:GetClass()==v then
+    --             return face.CollisionClassListShouldCollide
+    --         end
+    --     end
+    --     return !face.CollisionClassListShouldCollide -- do the OPPOSITE of whatever is in the list does
+    -- else
+    --     if face.CollisionTeamList[not_face:Team()] != nil then
+    --         return face.CollisionClassListShouldCollide
+    --     end
+    -- end
+    return false
 end
 hook.Add("ShouldCollide", "gzt_face_shouldcolide", ShouldCollide)
 
 function ENT:Draw()
-    cam.Start3D()
-        render.DrawWireframeBox(self:GetPos(), self:GetAngles(), self:GetMin(), self:GetMax(), Color(255,0,0,255))
-        render.DrawWireframeSphere(self:GetPos(), 5, 15, 15, Color(0,255,0,255))
-    cam.End3D()
+    -- cam.Start3D()
+    --     render.DrawWireframeBox(self:GetPos(), self:GetAngles(), self:GetMin(), self:GetMax(), Color(255,0,0,255))
+    --     render.DrawWireframeSphere(self:GetPos(), 5, 15, 15, Color(0,255,0,255))
+    -- cam.End3D()
 end

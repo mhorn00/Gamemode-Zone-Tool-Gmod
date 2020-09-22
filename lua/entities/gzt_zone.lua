@@ -40,6 +40,30 @@ function ENT:SetupDataTables()
 	self:NetworkVar("String",0,"Catagory")
 	self:NetworkVar("String",1,"Uuid")
 	self:NetworkVar("Bool",0,"DrawFaces")
+	self:NetworkVar("Bool",1,"NeedsCollisionUpdate")
+	self:NetworkVar("Bool",2,"ReadyCollisionUpdate")
+	for i in ipairs(self.FACE_ENUM_NAME) do
+		self:NetworkVar("Entity", i, self.FACE_ENUM_NAME[i])
+	end
+	self:NetworkVarNotify("ReadyCollisionUpdate", UpdateFaceCollisions)
+end
+
+function ENT:UpdateFaceCollisions()
+	print("network var ntofiaying :0")
+	if CLIENT then return end
+	local combined = {}
+	combined.uuid = self:GetUuid()
+	for k,v in pairs(self.FACE_ENUM_NAME) do
+		local face = self["Get"..v](self)
+		combined[v] = {}
+		combined[v].CollisionClassListShouldCollide = face.CollisionClassListShouldCollide
+        combined[v].CollisionClassList = face.CollisionClassList
+        combined[v].CollisionTeamListShouldCollide = face.CollisionTeamListShouldCollide 
+        combined[v].CollisionTeamList = face.CollisionTeamList
+	end
+	print("Sending combined face tables")
+	PrintTable(combined)
+	net.SendChunks("gzt_combinedfacetables", combined)
 end
 
 function ENT:Initialize()
@@ -54,23 +78,26 @@ function ENT:Initialize()
 	self:SetMinBound(vec1)
 	self:SetMaxBound(vec2)
 	self:SetDrawFaces(self:GetDrawFaces())
+	self:SetNeedsCollisionUpdate(true)
+	self:SetReadyCollisionUpdate(false)
 	if SERVER then
 		self:SetupFaces()
 	end
 end
 
-function ENT:SetupFaces()
-	local THICKNESS = 1
+function ENT:SetupFaces() --SERVER ONLY
+	local THICKNESS = 0.01
 	local dist_vec = self:GetMaxBound()
 	local pos = self:GetPos()
 	local angles = self:GetAngles()
-	if self.Faces then
-		for k,v in pairs(self.Faces) do
-			v:Remove()
+	for k,face_enum in pairs(self.FACE_ENUM_NAME) do
+		local currentface = self["Get"..face_enum](self) 
+		if IsValid(currentface) then
+			currentface:Remove()
+			self["Set"..face_enum](self,nil)
 		end
 	end
-	self.Faces = {}
-	for i,face in pairs(self.FACE_ENUM_NAME) do 
+	for i,face_enum in pairs(self.FACE_ENUM_NAME) do 
 		if i == #self.FACE_ENUM_NAME then break end -- we don't want the loop to run final iteration bc the final one is face "Z" for ZONE (entire zone's physobj) 
 		local face_offset = Vector(
 			i%3==1 and dist_vec.x or 0,
@@ -79,7 +106,6 @@ function ENT:SetupFaces()
 		if math.floor((i-1)/3)>=1 then
 			face_offset = face_offset*-1
 		end
-		self.Faces[face] = ents.Create("gzt_face")
 		local size_vector_3d = dist_vec - (face_offset*((i/3)>1 and -1 or 1))
 		local min = Vector(-size_vector_3d)
 		local max = Vector(size_vector_3d)
@@ -95,16 +121,16 @@ function ENT:SetupFaces()
 			min.z = -THICKNESS
 			max.z = THICKNESS
 		end
-		print("FACE MIN/MAX FOR ===", face)
-		print(min,max, pos)
 		face_offset_aa = Vector(face_offset) --face_offset_axis_aligned
 		face_offset:Rotate(angles)
-		self.Faces[face]:SetPos(pos+face_offset)
-		self.Faces[face]:SetAngles(angles)
-		self.Faces[face]:SetMin(min)
-		self.Faces[face]:SetMax(max)
-		self.Faces[face]:SetUuid(MakeUuid())
-		self.Faces[face]:Spawn()
+		local face = ents.Create("gzt_face")
+		face:SetPos(pos+face_offset)
+		face:SetAngles(angles)
+		face:SetMin(min)
+		face:SetMax(max)
+		face:SetUuid(MakeUuid())
+		face:Spawn()
+		self["Set"..face_enum](self,face)
 	end
 	local zone_face = ents.Create("gzt_face")
 	zone_face:SetPos(pos)
@@ -113,12 +139,31 @@ function ENT:SetupFaces()
 	zone_face:SetMax(self:GetMaxBound()+Vector(THICKNESS,THICKNESS,THICKNESS))
 	zone_face:SetUuid(MakeUuid())
 	zone_face:Spawn()
-	self.Faces["Z"] = zone_face
+	self:SetZ(zone_face)
+	self:CollisionRulesChanged()
 end
 
 function ENT:Think()
 	if CLIENT then
 		self:SetRenderBounds(self:GetMinBound(),self:GetMaxBound())
+		if(self:GetNeedsCollisionUpdate()) then
+			local ready_for_collision = true
+			for k,v in pairs(self.FACE_ENUM_NAME) do
+				if(!IsValid(self["Get"..v](self))) then
+					ready_for_collision = false
+				end
+			end
+			if(ready_for_collision) and !self:GetReadyCollisionUpdate() then
+				print("Changing collision ready update")
+				self:SetReadyCollisionUpdate(true)
+			end
+		end
+	end
+	if SERVER then
+		print(self:GetReadyCollisionUpdate(), self:GetNeedsCollisionUpdate())
+		if self:GetReadyCollisionUpdate() && self:GetNeedsCollisionUpdate() then
+			self:UpdateFaceCollisions()
+		end
 	end
 end
 
@@ -142,6 +187,9 @@ function ENT:ToggleFaces()
 	end
 end
 
+function ENT:UpdateTransmitState()	
+	return TRANSMIT_ALWAYS 
+end
 
 local color_mat = Material("color")
 function ENT:Draw()
@@ -238,19 +286,20 @@ function ENT:OnRemove()
 	end
 end
 
-hook.Add("gzt_finishcollisionlookup", "_", function(t)
-	local uuid = t.uuid;
+hook.Add("gzt_combinedfacetables", "_", function(tbl)
+	local uuid = tbl.uuid
 	local zone = GZT_WRAPPER:ZoneEntityLookup(uuid)
-	-- self.CollisionClassListShouldCollide = true  
-	-- self.CollisionClassList = {}
-	-- self.CollisionTeamListShouldCollide = false
-	-- self.CollisonTeamList = {}
+	print("collision table recieved on clinet=====")
+	PrintTable(tbl)
 	for i, face_name in pairs(FACE_ENUM_NAME) do
-		local face = zone.Faces[face_name]
-		face.CollisionClassList = t.faces[face_name].CollisionClassList
-		face.CollisionClassListShouldCollide = t.faces[face_name].CollisionClassListShouldCollide
-		face.CollisionTeamList = t.faces[face_name].CollisionTeamList
-		face.CollisionTeamListShouldCollide = t.faces[face_name].CollisionTeamListShouldCollide
+		local face = zone["Get"..face_name](zone)
+		local facetbl = tbl[face_name]
+		face.CollisionClassList = facetbl.CollisionClassList
+		face.CollisionClassListShouldCollide = facetbl.CollisionClassListShouldCollide
+		face.CollisionTeamList = facetbl.CollisionTeamList
+		face.CollisionTeamListShouldCollide = facetbl.CollisionTeamListShouldCollide
 		face:CollisionRulesChanged()
 	end
+	zone:SetReadyCollisionUpdate(false)
+	zone:SetNeedsCollisionUpdate(false)
 end)

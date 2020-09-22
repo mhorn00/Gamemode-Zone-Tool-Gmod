@@ -76,8 +76,13 @@ end
 if CLIENT then
 	net.Receive("gzt_returnclientzoneid", function(len)
 		local gzt_uuid = net.ReadString()
-		LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid = gzt_uuid
-		GetConVar("gzt_currently_editing_ent"):SetString(gzt_uuid)
+		if gzt_uuid == "nil" then
+			LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid = nil	
+			GetConVar("gzt_currently_editing_ent"):SetString("")
+		else
+			LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid = gzt_uuid
+			GetConVar("gzt_currently_editing_ent"):SetString(gzt_uuid)
+		end
 	end)
 	net.Receive("gzt_deleteFinished", function(len)
 		LocalPlayer():GetActiveWeapon().gzt_CurrentZoneObj.gzt_uuid = nil
@@ -131,12 +136,12 @@ for k,v in pairs(SWEP.Modes) do
 			self:IncToolMode()
 		end
 	end
-	SWEP["KF"..v..KEY_H] = function(self, KeyCombo)
-		if GetConVar("gzt_is_paused"):GetInt() == 1 then return end
-		if !KeyCombo.processed && !KeyCombo.released && CLIENT then
-			self:GetOwner():ConCommand("gzt_toggle_gui")
-		end	
-	end
+	-- SWEP["KF"..v..KEY_H] = function(self, KeyCombo)
+	-- 	if GetConVar("gzt_is_paused"):GetInt() == 1 then return end
+	-- 	if !KeyCombo.processed && !KeyCombo.released && CLIENT then
+	-- 		self:GetOwner():ConCommand("gzt_toggle_gui")
+	-- 	end	
+	-- end
 end
 
 SWEP["KF"..SWEP.Modes.Create..KEY_T] = function(self, KeyCombo)
@@ -189,6 +194,7 @@ end
 
 SWEP.TellServerToCreateZone = function(self)
 	self.gzt_CurrentZoneObj.gzt_center, self.gzt_CurrentZoneObj.gzt_pos1, self.gzt_CurrentZoneObj.gzt_pos2 = GZT_WRAPPER:toLocalSpace(self.gzt_CurrentZoneObj.wspos1, self.gzt_CurrentZoneObj.wspos2)
+		if self.gzt_CurrentZoneObj.gzt_pos1 == self.gzt_CurrentZoneObj.gzt_pos2 then return end
 	local data = {gzt_uuid=self.gzt_CurrentZoneObj.gzt_uuid, gzt_center=self.gzt_CurrentZoneObj.gzt_center,gzt_pos1= self.gzt_CurrentZoneObj.gzt_pos1,gzt_pos2= self.gzt_CurrentZoneObj.gzt_pos2,gzt_angle=Angle(0,0,0)}
 	if data.gzt_uuid == "" || data.gzt_uuid == nil then
 		GZT_WRAPPER:ClientMakeZone(data)
