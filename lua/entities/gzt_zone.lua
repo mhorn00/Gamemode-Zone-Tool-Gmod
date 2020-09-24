@@ -31,8 +31,7 @@ ENT.FACE_ENUM_NAME = {
 	"D",
 	"Z"
 }
-
-ENT.Faces = {}
+ENT.NeedsCollisionUpdate = true
 
 function ENT:SetupDataTables()
 	self:NetworkVar("Vector",0,"MinBound")
@@ -48,23 +47,23 @@ function ENT:SetupDataTables()
 	self:NetworkVarNotify("ReadyCollisionUpdate", UpdateFaceCollisions)
 end
 
-function ENT:UpdateFaceCollisions()
-	print("network var ntofiaying :0")
-	if CLIENT then return end
-	local combined = {}
-	combined.uuid = self:GetUuid()
-	for k,v in pairs(self.FACE_ENUM_NAME) do
-		local face = self["Get"..v](self)
-		combined[v] = {}
-		combined[v].CollisionClassListShouldCollide = face.CollisionClassListShouldCollide
-        combined[v].CollisionClassList = face.CollisionClassList
-        combined[v].CollisionTeamListShouldCollide = face.CollisionTeamListShouldCollide 
-        combined[v].CollisionTeamList = face.CollisionTeamList
-	end
-	print("Sending combined face tables")
-	PrintTable(combined)
-	net.SendChunks("gzt_combinedfacetables", combined)
-end
+-- function ENT:UpdateFaceCollisions()
+-- 	print("network var ntofiaying :0")
+-- 	if CLIENT then return end
+-- 	local combined = {}
+-- 	combined.uuid = self:GetUuid()
+-- 	for k,v in pairs(self.FACE_ENUM_NAME) do
+-- 		local face = self["Get"..v](self)
+-- 		combined[v] = {}
+-- 		combined[v].CollisionClassListShouldCollide = face.CollisionClassListShouldCollide
+--         combined[v].CollisionClassList = face.CollisionClassList
+--         combined[v].CollisionTeamListShouldCollide = face.CollisionTeamListShouldCollide 
+--         combined[v].CollisionTeamList = face.CollisionTeamList
+-- 	end
+-- 	print("Sending combined face tables")
+-- 	PrintTable(combined)
+-- 	net.SendChunks("gzt_combinedfacetables", combined)
+-- end
 
 function ENT:Initialize()
 	self:SetModel("models/props_c17/oildrum001.mdl")
@@ -82,6 +81,10 @@ function ENT:Initialize()
 	self:SetReadyCollisionUpdate(false)
 	if SERVER then
 		self:SetupFaces()
+		GZT_WRAPPER:ServerNotifyCollision(self)
+	end
+	if CLIENT then
+		print("This zones uuid is",self:GetUuid())
 	end
 end
 
@@ -130,7 +133,7 @@ function ENT:SetupFaces() --SERVER ONLY
 		face:SetMax(max)
 		face:SetUuid(MakeUuid())
 		face:Spawn()
-		self["Set"..face_enum](self,face)
+		self["Set"..face_enum](self,face)		
 	end
 	local zone_face = ents.Create("gzt_face")
 	zone_face:SetPos(pos)
@@ -146,23 +149,22 @@ end
 function ENT:Think()
 	if CLIENT then
 		self:SetRenderBounds(self:GetMinBound(),self:GetMaxBound())
-		if(self:GetNeedsCollisionUpdate()) then
-			local ready_for_collision = true
-			for k,v in pairs(self.FACE_ENUM_NAME) do
-				if(!IsValid(self["Get"..v](self))) then
-					ready_for_collision = false
+		if self.NeedsCollisionUpdate && GZT_WRAPPER.gzt_zone_collision_storage[self:GetUuid()] then
+			local facesvalid = true
+			for k,face_name in pairs(self.FACE_ENUM_NAME) do
+				if !IsValid(self["Get"..face_name](self)) then
+					facesvalid = false
 				end
 			end
-			if(ready_for_collision) and !self:GetReadyCollisionUpdate() then
-				print("Changing collision ready update")
-				self:SetReadyCollisionUpdate(true)
+			if facesvalid && IsValid(self) then
+				local collisiontables = GZT_WRAPPER.gzt_zone_collision_storage[self:GetUuid()]
+				for k,face_name in pairs(self.FACE_ENUM_NAME) do
+					local face = self["Get"..face_name](self) 
+					face.CollisionInfo = collisiontables[face_name]
+					face:CollisionRulesChanged()
+				end 
+				self.NeedsCollisionUpdate = false
 			end
-		end
-	end
-	if SERVER then
-		print(self:GetReadyCollisionUpdate(), self:GetNeedsCollisionUpdate())
-		if self:GetReadyCollisionUpdate() && self:GetNeedsCollisionUpdate() then
-			self:UpdateFaceCollisions()
 		end
 	end
 end
@@ -286,20 +288,3 @@ function ENT:OnRemove()
 	end
 end
 
-hook.Add("gzt_combinedfacetables", "_", function(tbl)
-	local uuid = tbl.uuid
-	local zone = GZT_WRAPPER:ZoneEntityLookup(uuid)
-	print("collision table recieved on clinet=====")
-	PrintTable(tbl)
-	for i, face_name in pairs(FACE_ENUM_NAME) do
-		local face = zone["Get"..face_name](zone)
-		local facetbl = tbl[face_name]
-		face.CollisionClassList = facetbl.CollisionClassList
-		face.CollisionClassListShouldCollide = facetbl.CollisionClassListShouldCollide
-		face.CollisionTeamList = facetbl.CollisionTeamList
-		face.CollisionTeamListShouldCollide = facetbl.CollisionTeamListShouldCollide
-		face:CollisionRulesChanged()
-	end
-	zone:SetReadyCollisionUpdate(false)
-	zone:SetNeedsCollisionUpdate(false)
-end)

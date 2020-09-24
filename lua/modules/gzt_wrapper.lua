@@ -2,7 +2,7 @@ AddCSLuaFile()
 
 GZT_WRAPPER = {
     gzt_categories = {},
-    gzt_zones = {}    
+    gzt_zones = {} 
 }
 
 FACE_ENUM_NAME = {
@@ -65,7 +65,6 @@ if SERVER then
     net.RateReceive("gzt_ClientMakeZone", function(len, ply)
         local zoneObj = net.ReadTable()
         local myUuid = GZT_WRAPPER:MakeZone(zoneObj,ply)
-        --GZT_WRAPPER:SendPlayerZoneCollision(myUuid)
         net.Start("gzt_returnclientzoneid")
             net.WriteString(myUuid)
         net.Send(ply)
@@ -101,30 +100,6 @@ if SERVER then
             return
         end
     end)
-
-    function GZT_WRAPPER:SendPlayerZoneCollision(uuid, ply)
-        if uuid then
-            local zone = self.gzt_zones[uuid].gzt_entity
-            local combinedTable = {uuid=uuid, faces={}}
-            for i,face_enum in pairs(FACE_ENUM_NAME) do
-                local face = zone["Get"..face_enum](zone)--calls the get method for all the networked faces on the zone
-                combinedTable.faces[face_enum] = {}
-                combinedTable.faces[face_enum] = {CollisionClassListShouldCollide=face.CollisionClassListShouldCollide, CollisionClassList = face.CollisionClassList, CollisionTeamListShouldCollide = face.CollisionTeamListShouldCollide, CollisionTeamList = face.CollisionTeamList}
-            end
-            net.SendChunks("gzt_finishcollisionlookup", combinedTable, ply)--ply can be nil to send to everyone
-        end
-    end
-
-    function GZT_WRAPPER:UpdateCollisions(uuid, face_enum, CCLSC, CCL, CTLSC, CTL)
-        local zone = self.gzt_zones[uuid].gzt_entity
-        -- check to see if parameters are nil, if they are, do not update corresponding value for the zone. if they are non-nil, update corresponding value :)
-        local face = zone.Faces[face_enum] 
-        face.CollisionClassListShouldCollide = CCLSC == nil and face.CollisionClassListShouldCollide or CCLSC
-        face.CollisionClassList = CCL == nil and face.CollisionClassList or CCL
-        face.CollisionTeamListShouldCollide = CTLSC == nil and face.CollisionTeamListShouldCollide or CTLSC 
-        face.CollisionTeamList = CTL == nil and face.CollisionTeamList or CTL
-        self:SendPlayerZoneCollision(uuid) -- update clients
-    end
 
     function GZT_WRAPPER:GetClientCategories()
         return copyNoFunctions(self.gzt_categories)
@@ -230,7 +205,7 @@ if SERVER then
             self:SetRotation(uuid, zoneObj.angle)
         end
         local zone = self.gzt_zones[uuid].gzt_entity
-        if zoneObj.gzt_pos1 && zoneObj.gzt_pos2 && zoneObj.gzt_center then
+        if IsValid(zone) && zoneObj.gzt_pos1 && zoneObj.gzt_pos2 && zoneObj.gzt_center then
             local min, max = Vector(zoneObj.gzt_pos1),Vector(zoneObj.gzt_pos2)
             OrderVectors(min,max)
             zone:SetPos(zoneObj.gzt_center)
@@ -238,7 +213,6 @@ if SERVER then
             zone:SetMaxBound(max)
             zone:SetupFaces()
         end
-        self:SendPlayerZoneCollision(uuid)
     end
 
     function FindAvailableName(categoryName)--UPDATE ME
@@ -280,30 +254,23 @@ if SERVER then
         end
     end
     hook.Add("gzt_remotefunction", "gzt_remotefunctionhandler", RemoteFunction)
+
+    function GZT_WRAPPER:ServerNotifyCollision(zone, ply)
+        --[[
+            need to:
+            get tables from each face
+            broadcast it to client's GZT_WRAPPER, where it will be stored there for when the client is ready :)
+        ]]
+        local out = {uuid=zone:GetUuid(),faces={}}
+        for k,v in pairs(FACE_ENUM_NAME) do
+            local face = zone["Get"..v](zone)
+            face:CollisionRulesChanged()
+            out.faces[v] = face.CollisionInfo
+        end
+        net.SendChunks("gzt_servernotifycollision", out, ply)
+    end
 else 
     --CLIENT
-    GZT_WRAPPER.gzt_client_table_info = {}
-
-    function GZT_WRAPPER:SetFaceTableTemporarily(zoneUuid, facecollisiontable)
-        print("Inserting ", zoneUuid)
-        print(facecollisiontable)
-        self.gzt_client_table_info[zoneUuid] = facecollisiontable
-    end
-
-    function GZT_WRAPPER:ApplyFaceCollisionToEntity(zone)
-        local uuid = zone:GetUuid()
-        print("Checking ", uuid)
-        for i, face_name in pairs(FACE_ENUM_NAME) do
-		    local face = zone["Get"..face_name](zone)
-            local facetbl = self.gzt_client_table_info[uuid][face_name]
-		    face.CollisionClassList = facetbl.CollisionClassList
-		    face.CollisionClassListShouldCollide = facetbl.CollisionClassListShouldCollide
-		    face.CollisionTeamList = facetbl.CollisionTeamList
-		    face.CollisionTeamListShouldCollide = facetbl.CollisionTeamListShouldCollide
-		    face:CollisionRulesChanged()
-    	end
-    end
-    
     function GZT_WRAPPER:GetAllZones(cb)
         net.Start("gzt_GetAllZones")
             net.WriteString(cb)
@@ -367,8 +334,19 @@ else
                 return v
             end
         end
-        print("NO MATCH FOR ZONE WITH UUID",uuid)
     end
+    
+    -- from net.SendChunks for ServerNotifyCollision
+    -- tbl in form of {uuid, faces = {<ALL FACE ENUMS> = {CollisionClassList, CollisionClassListShouldCollide... etc}}}
+    GZT_WRAPPER.gzt_zone_collision_storage = {}
+    hook.Add("gzt_servernotifycollision", "_", function(tbl)
+        -- put into (client) global storage for zone collision info so that it can apply when ready
+        GZT_WRAPPER.gzt_zone_collision_storage[tbl.uuid] = tbl.faces 
+        local zone = GZT_WRAPPER:ZoneEntityLookup(tbl.uuid)
+        if(IsValid(zone)) then
+            zone.NeedsCollisionUpdate = true
+        end
+    end)
 end
 
 function GZT_WRAPPER:toLocalSpace(pos1, pos2)

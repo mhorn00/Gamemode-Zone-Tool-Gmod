@@ -21,11 +21,14 @@ function ENT:Initialize()
     self:EnableCustomCollisions(true)
     self:SetCustomCollisionCheck(true)
     self:Setup(self:GetMin(),self:GetMax())
-    if SERVER then 
-        self.CollisionClassListShouldCollide = true  
-        self.CollisionClassList = {"prop_physics"}
-        self.CollisionTeamListShouldCollide = true
-        self.CollisionTeamList = {10}
+    self:CollisionRulesChanged()
+    if SERVER then
+        self.CollisionInfo = { 
+            CollisionClassListShouldCollide = true,
+            CollisionClassList = {"prop_physics"},
+            CollisionTeamListShouldCollide = true,
+            CollisionTeamList = {10}
+        }
     end
 end
 
@@ -58,21 +61,21 @@ function ShouldCollide(ent1, ent2)
     end
     local face = ent1:GetClass()=="gzt_face" and ent1 or ent2
     local not_face = ent1:GetClass() == "gzt_face" and ent2 or ent1
-    -- print("face table below... be on lookout for collision stuff :)")
-    -- print(#face.CollisionClassList==0,face.CollisionClassList==nil)
-    -- print(#face.CollisionTeamList==0,face.CollisionTeamList==nil)
-    -- if !not_face:IsPlayer() then
-    --     for k,v in pairs(face.CollisionClassList) do -- check to see if entity is in the lsit
-    --         if not_face:GetClass()==v then
-    --             return face.CollisionClassListShouldCollide
-    --         end
-    --     end
-    --     return !face.CollisionClassListShouldCollide -- do the OPPOSITE of whatever is in the list does
-    -- else
-    --     if face.CollisionTeamList[not_face:Team()] != nil then
-    --         return face.CollisionClassListShouldCollide
-    --     end
-    -- end
+    if !face.CollisionInfo then return false end
+    if !not_face:IsPlayer() then
+        for k,v in pairs(face.CollisionInfo.CollisionClassList) do -- check to see if entity is in the lsit
+            if not_face:GetClass()==v then
+                return face.CollisionInfo.CollisionClassListShouldCollide
+            end
+        end
+        return !face.CollisionInfo.CollisionClassListShouldCollide -- do the OPPOSITE of whatever is in the list does
+    else
+        for k,v in pairs(face.CollisionInfo.CollisionTeamList) do
+            if not_face:Team()==v then
+                return face.CollisionInfo.CollisionTeamListShouldCollide
+            end
+        end
+    end
     return false
 end
 hook.Add("ShouldCollide", "gzt_face_shouldcolide", ShouldCollide)
