@@ -15,57 +15,17 @@ FACE_ENUM_NAME = {
 	"Z"
 }
 
-function copyNoFunctions(orig)
-    local orig_type = type(orig)
-    local copy
-    if orig_type == 'table' then
-        copy = {}
-        for orig_key, orig_value in next, orig, nil do
-            if(type(orig_value)=="function") then 
-                continue
-            end
-            copy[copyNoFunctions(orig_key)] = copyNoFunctions(orig_value)
-        end
-        setmetatable(copy, copyNoFunctions(debug.getmetatable(orig)))
-    else
-        copy = orig
-    end
-    return copy
-end
-
-if SERVER then 
-    util.AddNetworkString("gzt_GetAllCategories")
-    util.AddNetworkString("gzt_ClientMakeZone")
-    util.AddNetworkString("gzt_ClientUpdateZone")
-    util.AddNetworkString("gzt_ReturnClientZoneUUID")
-    util.AddNetworkString("gzt_GetCategoryByUUID")
-    util.AddNetworkString("gzt_GetAllZones")
-    util.AddNetworkString("gzt_GetZoneByUUID")
-    -- util.AddNetworkString("gzt_UpdateClientZones")
-    util.AddNetworkString("gzt_UpdateClientCategory")
-    util.AddNetworkString("gzt_returnclientzoneid")
-    util.AddNetworkString("gzt_setrotation")
-    util.AddNetworkString("gzt_deletezone")
-    util.AddNetworkString("gzt_GivePlayersFaceTable")
-
-    net.RateReceive("gzt_GetAllCategories", function(len, ply)
-        net.SendChunks(net.ReadString(), GZT_WRAPPER:GetClientCategories(), ply)
-    end)
-
-    net.RateReceive("gzt_GetAllZones", function(len, ply)
-        net.SendChunks(net.ReadString(),GZT_WRAPPER:GetClientZones(),ply)
-    end)
-
-    net.RateReceive("gzt_GetZoneByUUID", function(len, ply)
-        net.Start(net.ReadString())
-            net.WriteTable(copyNoFunctions(GZT_WRAPPER.gzt_zones[net.ReadString()]))
-        net.Send(ply)
-    end)
+if SERVER then  
+    util.AddNetworkString("gzt_ClientMakeZone") --Used by the Client to signal to the Server that a zone needs to be made
+    util.AddNetworkString("gzt_ClientUpdateZone") --Used by the Client to signal to the Server that a zone needs to be updated
+    util.AddNetworkString("gzt_ReturnClientZoneUUID")--Used by the Server to return the UUID of the zone that was made back to the Client
+    util.AddNetworkString("gzt_DeleteZone") --Used by the Client to signal to the Server that a zone needs to be deleted
+    util.AddNetworkString("gzt_DeleteFinished") --Used by the Server to signal to the client that a delete was finished
 
     net.RateReceive("gzt_ClientMakeZone", function(len, ply)
         local zoneObj = net.ReadTable()
         local myUuid = GZT_WRAPPER:MakeZone(zoneObj,ply)
-        net.Start("gzt_returnclientzoneid")
+        net.Start("gzt_ReturnClientZoneUUID")
             net.WriteString(myUuid)
         net.Send(ply)
     end)
@@ -74,13 +34,9 @@ if SERVER then
         local zoneObj = net.ReadTable()
         GZT_WRAPPER:UpdateZone(zoneObj.gzt_uuid, zoneObj, ply)
     end)
-
-    net.RateReceive("gzt_GetCategoryByUUID", function(len,ply)
-        net.Start(net.ReadString())
-            net.WriteTable(copyNoFunctions(GZT_WRAPPER.gzt_categories[net.ReadString()]))
-        net.Send(ply)
-    end)
     
+    -- delete zone via uuid with some 'locking' mechanism with the isDeleting table
+    -- protection against deleting a zone that is already deleted
     local isDeleting = {}
     net.RateReceive("gzt_DeleteZone", function(len, ply)
         local uuid = net.ReadString()
@@ -94,39 +50,14 @@ if SERVER then
             end
             GZT_WRAPPER.gzt_zones[uuid] = nil
             isDeleting[uuid] = nil
-            net.Start("gzt_deleteFinished")
+            net.Start("gzt_DeleteFinished")
             net.Send(ply)
         else
             return
         end
     end)
 
-    function GZT_WRAPPER:GetClientCategories()
-        return copyNoFunctions(self.gzt_categories)
-    end
-
-    function GZT_WRAPPER:GetClientZones()
-        return copyNoFunctions(self.gzt_zones)
-    end
-
-    function GZT_WRAPPER:SetCategories(cats)
-        local uuidIndexed = {}
-        for k,v in pairs(cats) do
-            v.gzt_internalname=k
-            uuidIndexed[v.gzt_uuid] = v
-        end
-        for uuid,cat in pairs(uuidIndexed) do
-            for i,parentName in pairs(cat.gzt_parents) do
-                for search_uuid,search_cat in pairs(uuidIndexed) do
-                    if search_cat.gzt_internalname == parentName then
-                        uuidIndexed[uuid].gzt_parents[i] = search_uuid
-                    end
-                end 
-            end
-        end
-        self.gzt_categories = uuidIndexed
-    end
-
+    -- Set zones from loaded file (used in loader)
     function GZT_WRAPPER:SetZones(zones)
         local uuidIndexed = {}
         for k,v in pairs(zones) do
@@ -141,12 +72,15 @@ if SERVER then
         self.gzt_zones=uuidIndexed
     end
 
+    -- run on InitPostEntity to create the zones after load
     function GZT_WRAPPER:InitZones() 
         for uuid,zone in pairs(self.gzt_zones) do
             self:MakeZone(zone)
         end
     end
+    hook.Add("InitPostEntity", "GZT_BeforeLoadEntities", GZT_WRAPPER.InitZones)
 
+    -- Set Rotation logic for zones, handles face rotation as well
     function GZT_WRAPPER:SetRotation(uuid, angles)
         local zone = GZT_WRAPPER.gzt_zones[uuid]
         local angle = angles
@@ -165,6 +99,7 @@ if SERVER then
         end
     end
 
+    -- make zone given zoneobject containing pos1, pos2, angle, center
     function GZT_WRAPPER:MakeZone(zoneObj, ply)
         if zoneObj.gzt_pos1 == zoneObj.gzt_pos2 then
             return "nil"
@@ -190,10 +125,10 @@ if SERVER then
         return self.gzt_zones[tempuuid].gzt_uuid
     end
 
-
+    --Updates a zone
     function GZT_WRAPPER:UpdateZone(uuid, zoneObj, ply)
         if self.gzt_zones[uuid]==nil then
-            net.Start("gzt_returnclientzoneid") --If the client trys to update a zone that doesnt exist on the server, we just remove the uuid the client has
+            net.Start("gzt_ReturnClientZoneUUID") --If the client trys to update a zone that doesnt exist on the server, we just remove the uuid the client has
                 net.WriteString("nil")
             net.Send(ply)
             return
@@ -212,38 +147,11 @@ if SERVER then
             zone:SetMinBound(min)
             zone:SetMaxBound(max)
             zone:SetupFaces()
+            self:ServerNotifyCollision(zone)
         end
     end
 
-    function FindAvailableName(categoryName)--UPDATE ME
-        if GZT_WRAPPER.gzt_zones[categoryName] then
-            local extraNum = 1
-            while GZT_WRAPPER.gzt_zones[categoryName.." "..extraNum] != nil do
-                extraNum = extraNum+1
-            end
-            return categoryName .. " "..extraNum
-        end
-        return categoryName
-    end
-
-    -- function GZT_WRAPPER:UpdateClientZone(zoneObj)
-    --     net.Start("gzt_UpdateClientZones")
-    --         net.WriteTable(copyNoFunctions(zoneObj))
-    --     net.Broadcast()
-    -- end
-    
-    function GZT_WRAPPER:UpdateClientCategory(uuid,categoryObj)
-        net.Start("gzt_UpdateClientCategory")
-            net.WriteString(uuid)
-            net.WriteTable(copyNoFunctions(categoryObj))
-        net.Broadcast()
-    end
-
-    function InitPostEntity()
-        GZT_WRAPPER:InitZones()
-    end
-    hook.Add("InitPostEntity", "GZT_BeforeLoadEntities", InitPostEntity)
-    
+    -- run arbitrary function specified by client on serverside entity object 
     function RemoteFunction(remoteFuncData)
         local uuid = remoteFuncData.uuid
         local funcName = remoteFuncData.funcName
@@ -255,12 +163,8 @@ if SERVER then
     end
     hook.Add("gzt_remotefunction", "gzt_remotefunctionhandler", RemoteFunction)
 
+    -- Used by the Server to notify to the Clients that a zone had a collision change 
     function GZT_WRAPPER:ServerNotifyCollision(zone, ply)
-        --[[
-            need to:
-            get tables from each face
-            broadcast it to client's GZT_WRAPPER, where it will be stored there for when the client is ready :)
-        ]]
         local out = {uuid=zone:GetUuid(),faces={}}
         for k,v in pairs(FACE_ENUM_NAME) do
             local face = zone["Get"..v](zone)
@@ -268,65 +172,41 @@ if SERVER then
             out.faces[v] = face.CollisionInfo
         end
         net.SendChunks("gzt_servernotifycollision", out, ply)
-    end
-else 
-    --CLIENT
-    function GZT_WRAPPER:GetAllZones(cb)
-        net.Start("gzt_GetAllZones")
-            net.WriteString(cb)
-        net.SendToServer()
-    end
+    end   
+else
+    -- ============================================================================================================================
+    -- ============================================================================================================================
+    -- ========================================================== CLIENT ==========================================================
+    -- ============================================================================================================================
+    -- ============================================================================================================================
 
-    function GZT_WRAPPER:GetZoneUUID(id,cb)
-        net.Start("gzt_GetZoneByUUID")
-            net.WriteString(cb)
-            net.WriteString(id)
-        net.SendToServer()
-    end
-
+    --Tell the server to make a new zone
     function GZT_WRAPPER:ClientMakeZone(zoneObj)
         net.Start("gzt_ClientMakeZone")
             net.WriteTable(zoneObj)
         net.SendToServer()
     end
     
+    --Tell the server to update a zone 
     function GZT_WRAPPER:ClientUpdateZone(zoneObj)
         net.Start("gzt_ClientUpdateZone")
             net.WriteTable(zoneObj)
         net.SendToServer()
     end
-
-    function GZT_WRAPPER:GetCategoryUUID(uuid, cb)
-        net.Start("gzt_GetCategoryByUUID")
-            net.WriteString(cb)
-            net.WriteString(uuid)
-        net.SendToServer()
-    end
-
-    function GZT_WRAPPER:GetAllCategories(callback)
-        net.Start("gzt_GetAllCategories")
-            net.WriteString(callback)
-        net.SendToServer()
-    end
-
-    function GZT_WRAPPER:SetRotation(uuid,angle)
-        net.Start("gzt_setrotation")
-            net.WriteString(uuid)
-            net.WriteAngle(angle)
-        net.SendToServer()
-    end
-
+    
+    -- tell server to run specific function on the server's zone
     function GZT_WRAPPER:RemoteFunction(uuid, funcname, data)
         net.SendChunks("gzt_remotefunction", {uuid=uuid, funcName=funcname, data=data})
     end
 
+    -- send uuid to server to delete a zone
     function GZT_WRAPPER:DeleteZone(uuid)
-        net.Start("gzt_deletezone")
+        net.Start("gzt_DeleteZone")
             net.WriteString(uuid)
         net.SendToServer()
     end
 
-
+    -- Look up the zone entity with uuid on the Client
     function GZT_WRAPPER:ZoneEntityLookup(uuid)
         local zones = ents.FindByClass("gzt_zone")
         for k,v in pairs(zones) do
@@ -335,7 +215,7 @@ else
             end
         end
     end
-    
+
     -- from net.SendChunks for ServerNotifyCollision
     -- tbl in form of {uuid, faces = {<ALL FACE ENUMS> = {CollisionClassList, CollisionClassListShouldCollide... etc}}}
     GZT_WRAPPER.gzt_zone_collision_storage = {}
@@ -347,6 +227,8 @@ else
             zone.NeedsCollisionUpdate = true
         end
     end)
+
+
 end
 
 function GZT_WRAPPER:toLocalSpace(pos1, pos2)

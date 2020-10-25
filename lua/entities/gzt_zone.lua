@@ -39,31 +39,10 @@ function ENT:SetupDataTables()
 	self:NetworkVar("String",0,"Catagory")
 	self:NetworkVar("String",1,"Uuid")
 	self:NetworkVar("Bool",0,"DrawFaces")
-	self:NetworkVar("Bool",1,"NeedsCollisionUpdate")
-	self:NetworkVar("Bool",2,"ReadyCollisionUpdate")
 	for i in ipairs(self.FACE_ENUM_NAME) do
 		self:NetworkVar("Entity", i, self.FACE_ENUM_NAME[i])
 	end
-	self:NetworkVarNotify("ReadyCollisionUpdate", UpdateFaceCollisions)
 end
-
--- function ENT:UpdateFaceCollisions()
--- 	print("network var ntofiaying :0")
--- 	if CLIENT then return end
--- 	local combined = {}
--- 	combined.uuid = self:GetUuid()
--- 	for k,v in pairs(self.FACE_ENUM_NAME) do
--- 		local face = self["Get"..v](self)
--- 		combined[v] = {}
--- 		combined[v].CollisionClassListShouldCollide = face.CollisionClassListShouldCollide
---         combined[v].CollisionClassList = face.CollisionClassList
---         combined[v].CollisionTeamListShouldCollide = face.CollisionTeamListShouldCollide 
---         combined[v].CollisionTeamList = face.CollisionTeamList
--- 	end
--- 	print("Sending combined face tables")
--- 	PrintTable(combined)
--- 	net.SendChunks("gzt_combinedfacetables", combined)
--- end
 
 function ENT:Initialize()
 	self:SetModel("models/props_c17/oildrum001.mdl")
@@ -77,8 +56,6 @@ function ENT:Initialize()
 	self:SetMinBound(vec1)
 	self:SetMaxBound(vec2)
 	self:SetDrawFaces(self:GetDrawFaces())
-	self:SetNeedsCollisionUpdate(true)
-	self:SetReadyCollisionUpdate(false)
 	if SERVER then
 		self:SetupFaces()
 		GZT_WRAPPER:ServerNotifyCollision(self)
@@ -150,6 +127,7 @@ function ENT:Think()
 	if CLIENT then
 		self:SetRenderBounds(self:GetMinBound(),self:GetMaxBound())
 		if self.NeedsCollisionUpdate && GZT_WRAPPER.gzt_zone_collision_storage[self:GetUuid()] then
+			print("GETTING DATA!!!!!!!")
 			local facesvalid = true
 			for k,face_name in pairs(self.FACE_ENUM_NAME) do
 				if !IsValid(self["Get"..face_name](self)) then
@@ -281,10 +259,12 @@ function ENT:Draw()
 end
 
 function ENT:OnRemove()
-	if(SERVER && self.Faces &&  #self.Faces!=0) then
-		for k,v in pairs(self.Faces) do
-			v:Remove()
-		end
+	if SERVER then
+		for k,face_name in pairs(self.FACE_ENUM_NAME) do
+			local face = self["Get"..face_name](self)
+			face:Remove()
+			self["Set"..face_name](self,nil)
+		end 
 	end
 end
 
