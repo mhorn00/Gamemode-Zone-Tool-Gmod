@@ -115,7 +115,6 @@ function PropertyProcessor(cat,isZone)
 end
 
 function errorCheck(catName,cat, isZone) -- basic error check making sure that all reserved props are the right datatypes
-    //TODO: makes sure our reserved words arent used already
     isZone = isZone and isZone or false
     local reserved = {}
     local errStringTypeName= ""

@@ -1,5 +1,4 @@
 AddCSLuaFile()
-
 if SERVER then return end
 
 CreateClientConVar("gzt_toolmode",1, false, true, "Current mode of the tool",1)

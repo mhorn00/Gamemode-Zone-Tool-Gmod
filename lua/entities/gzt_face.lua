@@ -79,10 +79,3 @@ function ShouldCollide(ent1, ent2)
     return false
 end
 hook.Add("ShouldCollide", "gzt_face_shouldcolide", ShouldCollide)
-
-function ENT:Draw()
-    -- cam.Start3D()
-    --     render.DrawWireframeBox(self:GetPos(), self:GetAngles(), self:GetMin(), self:GetMax(), Color(255,0,0,255))
-    --     render.DrawWireframeSphere(self:GetPos(), 5, 15, 15, Color(0,255,0,255))
-    -- cam.End3D()
-end

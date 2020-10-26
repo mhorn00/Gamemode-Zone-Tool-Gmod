@@ -36,7 +36,6 @@ ENT.NeedsCollisionUpdate = true
 function ENT:SetupDataTables()
 	self:NetworkVar("Vector",0,"MinBound")
 	self:NetworkVar("Vector",1,"MaxBound")
-	self:NetworkVar("String",0,"Catagory")
 	self:NetworkVar("String",1,"Uuid")
 	self:NetworkVar("Bool",0,"DrawFaces")
 	for i in ipairs(self.FACE_ENUM_NAME) do
@@ -59,9 +58,6 @@ function ENT:Initialize()
 	if SERVER then
 		self:SetupFaces()
 		GZT_WRAPPER:ServerNotifyCollision(self)
-	end
-	if CLIENT then
-		print("This zones uuid is",self:GetUuid())
 	end
 end
 
@@ -127,7 +123,6 @@ function ENT:Think()
 	if CLIENT then
 		self:SetRenderBounds(self:GetMinBound(),self:GetMaxBound())
 		if self.NeedsCollisionUpdate && GZT_WRAPPER.gzt_zone_collision_storage[self:GetUuid()] then
-			print("GETTING DATA!!!!!!!")
 			local facesvalid = true
 			for k,face_name in pairs(self.FACE_ENUM_NAME) do
 				if !IsValid(self["Get"..face_name](self)) then
@@ -145,10 +140,6 @@ function ENT:Think()
 			end
 		end
 	end
-end
-
-function ENT:TestCollision(startpos, delta, isbox, extents, mask)
-	return
 end
 
 function PhysgunPickup(ply,ent)
