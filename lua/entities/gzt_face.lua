@@ -79,3 +79,6 @@ function ShouldCollide(ent1, ent2)
     return false
 end
 hook.Add("ShouldCollide", "gzt_face_shouldcolide", ShouldCollide)
+
+function ENT:Draw()
+end

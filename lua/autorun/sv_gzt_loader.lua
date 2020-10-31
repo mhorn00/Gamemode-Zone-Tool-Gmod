@@ -205,8 +205,14 @@ end
 
 function PostGamemodeLoaded()
     local GZT_CATS = {}
+    local GZT_ZONES = {}
+    local gm_zones_file = ""
+    local gm_categories_file = ""
+    local map_zones_file = ""
+    local map_categories_file = ""
     if file.Exists(engine.ActiveGamemode().."/lua/gzt_defs/gzt_catdef.lua", "LUA") then --Looking for "<current gamemode>/lua/gzt_defs/gzt_catdef.lua"
         local GM_CATS = include(engine.ActiveGamemode().."/lua/gzt_defs/gzt_catdef.lua")
+        local gm_categories_file = file.Read(engine.ActiveGamemode().."/lua/gzt_defs/gzt_catdef.lua")
         for catName, cat in pairs(GM_CATS) do
             errorCheck(catName,cat)
             cat.gzt_loadedBy="GM"
@@ -218,8 +224,9 @@ function PostGamemodeLoaded()
             collisonDetectorAndHandler(GZT_CATS, catName, cat, false)
         end
     end
-    if file.Exists("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_c.lua", "LUA") then
-        local USERMAP_CATS = include("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_c.lua")
+    if file.Exists("gzt_defs/gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."/gzt_catdef.lua", "LUA") then
+        local USERMAP_CATS = include("gzt_defs/gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."/gzt_catdef.lua")
+        local map_categories_file = file.Read("gzt_defs/gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."/gzt_catdef.lua")
         for catName, cat in pairs(USERMAP_CATS) do
             errorCheck(catName, cat)
             cat.gzt_loadedBy="USERMAP"
@@ -252,9 +259,10 @@ function PostGamemodeLoaded()
     --[[
         LOAD ZONES!
     ]]
-    local GZT_ZONES = {}
+
     if file.Exists(engine.ActiveGamemode().."/lua/gzt_defs/gzt_maps/"..game.GetMap()..".lua", "LUA") then --Looking for "<current gamemode>/lua/gzt_defs/gzt_maps/<current map>"
         local GM_ZONES = include(engine.ActiveGamemode().."/lua/gzt_defs/gzt_maps/"..game.GetMap()..".lua")
+        gm_zones_file = file.Read(engine.ActiveGamemode().."/lua/gzt_defs/gzt_maps/"..game.GetMap()..".lua")
         for zoneId, zone in pairs(GM_ZONES) do
             errorCheck(zoneId,zone, true)
             zone.gzt_loadedBy="GM"
@@ -266,8 +274,9 @@ function PostGamemodeLoaded()
             collisonDetectorAndHandler(GZT_ZONES, zoneId, zone, true)
         end
     end
-    if file.Exists("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_z.lua", "LUA") then
-        local USERMAP_ZONES = include("gzt_defs/gzt_maps/"..engine.ActiveGamemode().."_"..game.GetMap().."_z.lua")
+    if file.Exists("gzt_defs/gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."/gzt_zonedef.lua", "LUA") then
+        local USERMAP_ZONES = include("gzt_defs/gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."/gzt_zonedef.lua")
+        local map_zones_file = file.Read("gzt_defs/gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."/gzt_zonedef.lua")
         for zoneId, zone in pairs(USERMAP_ZONES) do
             errorCheck(zoneId, zone, true)
             zone.gzt_loadedBy="USERMAP"
@@ -301,8 +310,13 @@ function PostGamemodeLoaded()
         transform_zone_corners(v)
     end
     
+
     GZT_WRAPPER:SetCategories(GZT_CATS)
     GZT_WRAPPER:SetZones(GZT_ZONES)
+    GZT_WRAPPER.gzt_gm_zones_file = gm_zones_file
+    GZT_WRAPPER.gzt_gm_categories_file = gm_categories_file
+    GZT_WRAPPER.gzt_map_zones_file = map_zones_file
+    GZT_WRAPPER.gzt_map_categories_file = map_categories_file
 end
 hook.Add("PostGamemodeLoaded", "GZT_Loader_PostGamemodeLoaded", PostGamemodeLoaded)
 

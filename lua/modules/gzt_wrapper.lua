@@ -2,7 +2,11 @@ AddCSLuaFile()
 
 GZT_WRAPPER = {
     gzt_categories = {},
-    gzt_zones = {} 
+    gzt_zones = {},
+    gzt_gm_zones_file = "",
+    gzt_gm_categories_file = "",
+    gzt_map_zones_file = "",
+    gzt_map_categories_file = "",
 }
 
 FACE_ENUM_NAME = {
@@ -16,18 +20,27 @@ FACE_ENUM_NAME = {
 }
 
 if SERVER then  
-    util.AddNetworkString("gzt_ClientMakeZone") --Used by the Client to signal to the Server that a zone needs to be made
-    util.AddNetworkString("gzt_ClientUpdateZone") --Used by the Client to signal to the Server that a zone needs to be updated
-    util.AddNetworkString("gzt_ReturnClientZoneUUID")--Used by the Server to return the UUID of the zone that was made back to the Client
-    util.AddNetworkString("gzt_DeleteZone") --Used by the Client to signal to the Server that a zone needs to be deleted
-    util.AddNetworkString("gzt_DeleteFinished") --Used by the Server to signal to the client that a delete was finished
+    util.AddNetworkString("gzt_ClientMakeZone") -- Used by the Client to signal to the Server that a zone needs to be made
+    util.AddNetworkString("gzt_ClientUpdateZone") -- Used by the Client to signal to the Server that a zone needs to be updated
+    util.AddNetworkString("gzt_DeleteZone") -- Used by the Client to signal to the Server that a zone needs to be deleted
+    util.AddNetworkString("gzt_DeleteFinished") -- Used by the Server to signal to the client that a delete was finished
+    util.AddNetworkString("gzt_PlayerFullConnected") -- Used by the Client to signal to the Server that the player is ready to revice net messages 
+
+    --This is where we can start sending data back to the clients that have just joined.
+    net.Receive("gzt_PlayerFullConnected", function(len, ply)
+        local filetbl = {gm_zonef=GZT_WRAPPER.gzt_gm_zones_file, gm_catf=GZT_WRAPPER.gzt_gm_categories_file, map_zonef=GZT_WRAPPER.gzt_map_zones_file, map_catf=GZT_WRAPPER.gzt_map_categories_file}
+        net.SendChunks("gzt_CategoryAndZoneFileReceive",filetbl,ply)
+        --local lol = file.Read("gzt_defs/gzt_maps/"..game.GetMap().."/"..engine.ActiveGamemode().."/file.txt", "LUA")
+        --net.SendChunks("gzt_CategoryAndZoneFileReceive",{hah=lol},ply)
+        for k,v in pairs(GZT_WRAPPER.gzt_zones) do
+            GZT_WRAPPER:ServerNotifyCollision(v.gzt_entity,ply)
+        end
+    end)
 
     net.RateReceive("gzt_ClientMakeZone", function(len, ply)
         local zoneObj = net.ReadTable()
         local myUuid = GZT_WRAPPER:MakeZone(zoneObj,ply)
-        net.Start("gzt_ReturnClientZoneUUID")
-            net.WriteString(myUuid)
-        net.Send(ply)
+        net.SendChunks("gzt_ReturnClientZoneUUID", {gzt_uuid=myUuid}, ply)
     end)
 
     net.RateReceive("gzt_ClientUpdateZone", function(len, ply)
@@ -57,6 +70,24 @@ if SERVER then
         end
     end)
 
+    function GZT_WRAPPER:SetCategories(cats)
+        local uuidIndexed = {}
+        for k,v in pairs(cats) do
+            v.gzt_internalname=k
+            uuidIndexed[v.gzt_uuid] = v
+        end
+        for uuid,cat in pairs(uuidIndexed) do
+            for i,parentName in pairs(cat.gzt_parents) do
+                for search_uuid,search_cat in pairs(uuidIndexed) do
+                    if search_cat.gzt_internalname == parentName then
+                        uuidIndexed[uuid].gzt_parents[i] = search_uuid
+                    end
+                end 
+            end
+        end
+        self.gzt_categories = uuidIndexed
+    end
+
     -- Set zones from loaded file (used in loader)
     function GZT_WRAPPER:SetZones(zones)
         local uuidIndexed = {}
@@ -74,8 +105,9 @@ if SERVER then
 
     -- run on InitPostEntity to create the zones after load
     function GZT_WRAPPER:InitZones() 
-        for uuid,zone in pairs(self.gzt_zones) do
-            self:MakeZone(zone)
+        -- self is GM, not GZT_WRAPPER
+        for uuid,zone in pairs(GZT_WRAPPER.gzt_zones) do
+            GZT_WRAPPER:MakeZone(zone)
         end
     end
     hook.Add("InitPostEntity", "GZT_BeforeLoadEntities", GZT_WRAPPER.InitZones)
@@ -128,9 +160,7 @@ if SERVER then
     --Updates a zone
     function GZT_WRAPPER:UpdateZone(uuid, zoneObj, ply)
         if self.gzt_zones[uuid]==nil then
-            net.Start("gzt_ReturnClientZoneUUID") --If the client trys to update a zone that doesnt exist on the server, we just remove the uuid the client has
-                net.WriteString("nil")
-            net.Send(ply)
+            net.SendChunks("gzt_ReturnClientZoneUUID", {gzt_uuid=nil}, ply)
             return
         end
         if zoneObj.gzt_pos1 == zoneObj.gzt_pos2 then
@@ -228,7 +258,16 @@ else
         end
     end)
 
+    --After this is called we can relaiably start communicating between the Client and Server
+    hook.Add("InitPostEntity", "gzt_PlyReady", function()
+        net.Start("gzt_PlayerFullConnected")
+        net.SendToServer()
+    end)
 
+    hook.Add("gzt_CategoryAndZoneFileReceive","_", function(tbl)
+        print("WRITING!!!!!")
+        file.Write("data.txt",table.ToString(tbl))
+    end)
 end
 
 function GZT_WRAPPER:toLocalSpace(pos1, pos2)
