@@ -8,7 +8,7 @@ SWEP.AdminOnly = true
 SWEP.PrintName = "Gamemode Zone Tool"
 SWEP.Author = "Sarcly & Intox"
 --Sarcly's comments
-//Intox's comments
+//Intox comments
 
 SWEP.ViewModelFOV = 60
 SWEP.ViewModel = "models/weapons/c_toolgun.mdl"
